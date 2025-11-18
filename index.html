@@ -38,7 +38,7 @@
             #sidebar
             {
                 width:0;
-                background:#f4f4f4;
+                background:white;
                 border-left:2px solid #ccc;
                 height:100%;
                 overflow:hidden;
@@ -47,19 +47,22 @@
                 padding:0;
             }
 
-            #toggleSidebarButton
+            #sidebarButton
             {
                 position: absolute;
                 top: 50%;
                 right: 0;
                 z-index: 3000;
                 background: white;
+                border:2px solid #ccc;
+                border-right:4px solid white;
+
 
                 padding: 8px 10px;
                 cursor: pointer;
                 border-radius: 4px;
                 transition: right 0.21s ease;
-                transform: translateX(0%, -50%);
+                transform: translate(8%, -50%);
                 display:flex;
                 align-items:center;
                 justify-content:center;
@@ -81,7 +84,7 @@
 
     <body>
 
-        <button id="toggleSidebarButton" aria-label="Toggle sidebar">▶</button>
+        <button id="sidebarButton" aria-label="Toggle sidebar"></button>
 
         <div id="container">
             <div id="map"></div>
@@ -99,21 +102,54 @@
             // DOM references
             const sidebar = document.getElementById('sidebar');
             const mapDiv = document.getElementById('map');
-            const toggleBtn = document.getElementById('toggleSidebarButton');
-            let sidebarOpen = false;
-
+            const toggleBtn = document.getElementById('sidebarButton');
+            let sidebarOpen = true;
             const SIDEBAR_WIDTH = '35%';
 
             // Initialize map
             const map = L.map('map').setView([-37.8136, 144.9631], 11);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
+            // Initialise layer/s
+            var CartoDB_VoyagerNoLabels = L.tileLayer
+            (
+                'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
+                {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 20
+                }
+            );
 
-            // Feature group + draw control
+            var Esri_WorldGrayCanvas = L.tileLayer
+            (
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+                {
+                    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+                    maxZoom: 16
+                }
+            );
+
+
+            var CartoDB_PositronOnlyLabels = L.tileLayer
+            (
+                'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+                {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 20
+                }
+            );
+
+            Esri_WorldGrayCanvas.addTo(map)
+            CartoDB_PositronOnlyLabels.addTo(map);
+
+            // Force sidebar open after map is created
+            sidebar.style.width = SIDEBAR_WIDTH;
+            sidebar.setAttribute('aria-hidden', 'false');
+            toggleBtn.style.right = SIDEBAR_WIDTH;
+            toggleBtn.textContent = '▶';
+
+            // Folium-like Draw controls
             const drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
 
@@ -126,7 +162,7 @@
                     },
                     draw:
                     {
-                    polygon: true,
+                    polygon: true,  
                     rectangle: true,
                     circle: true,
                     polyline: false,
@@ -161,10 +197,8 @@
                 }
 
                 toggleBtn.style.right = sidebarOpen ? SIDEBAR_WIDTH : '0';
-                toggleBtn.textContent = sidebarOpen ? '◀' : '▶';
+                toggleBtn.textContent = sidebarOpen ? '▶' : '◀';
             });
-
-            updateButtonPosition();
 
         </script>
     </body>
