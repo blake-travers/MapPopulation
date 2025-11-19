@@ -11,7 +11,20 @@
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
+
         <style>
+            :root
+            {
+                --color-bg: #486095;
+                --color-bg-border: #0c214e;
+                --color-bg-highlight: #6486ce;
+            }
+
+            body, html, div, input, button, h1, h2, h3, p
+            {
+                font-family: "Inter", sans-serif;
+            }
             html,body
             {
                 height:100%;
@@ -38,13 +51,14 @@
             #sidebar
             {
                 width: 0%;
-                background:white;
-                border-left:2px solid #ccc;
+                background: var(--color-bg);
                 height:100%;
                 overflow:hidden;
                 transition: width 0.2s ease, padding 0.2s ease;
                 box-sizing:border-box;
                 padding:0;
+
+                border-left: 2px solid var(--color-bg-border);
             }
 
             #sidebarButton
@@ -53,10 +67,12 @@
                 top: 50%;
                 right: 0%;
                 z-index: 3000;
-                background: white;
-                border:2px solid #ccc;
-                border-right:4px solid white;
+                background: var(--color-bg);
 
+                border-right: 4px solid var(--color-bg);
+                border-left: 2px solid var(--color-bg-border);
+                border-top: 2px solid var(--color-bg-border);
+                border-bottom: 2px solid var(--color-bg-border);
 
                 padding: 8px 10px;
                 cursor: pointer;
@@ -78,6 +94,64 @@
                 box-sizing:border-box;
             }
 
+            #searchResults
+            {
+                font-family: "Inter", Arial, sans-serif;
+                font-size: inherit;
+            }
+
+            .search-result-item
+            {
+                font-family: inherit;
+                font-size: 14px;
+                padding: 8px 10px;
+                cursor: pointer;
+                border-bottom: 1px solid #eee;
+            }
+
+            .search-result-item:hover
+            {
+                background: #f0f0f0;
+            }
+
+
+            /* Zoom control container */
+            .leaflet-control-zoom.leaflet-bar
+            {
+                border: 2px solid var(--color-bg-border);
+                border-radius: 4.3px;
+                background: var(--color-bg);
+            }
+            .leaflet-control-zoom a
+            {
+                background: var(--color-bg);
+                border-bottom: 2px solid var(--color-bg-border);
+                transition: background 0.2s, transform 0.2s;
+            }
+            .leaflet-control-zoom a:hover
+            {
+                background-color: var(--color-bg-highlight);
+            }
+
+            /* Draw control container */
+            .leaflet-draw .leaflet-bar
+            {
+                border: 2px solid var(--color-bg-border);
+                border-radius: 4.3px;
+                background: var(--color-bg);
+            }
+            .leaflet-draw .leaflet-bar a
+            {
+                background: var(--color-bg);
+                border-bottom: 2px solid var(--color-bg-border);
+                transition: background 0.2s, transform 0.2s;
+            }
+            .leaflet-draw .leaflet-bar a:hover
+            {
+                background-color: var(--color-bg-highlight);
+            }
+
+
         </style>
 
     </head>
@@ -92,32 +166,18 @@
         spellcheck="false"
         style="
             position:absolute;
-            top:15px; left:15px;
+            top:500px; left:10px;
             z-index:3000;
             padding:6px 10px;
             border:2px solid #ccc;
             border-radius:4px;
-            width:260px;
+            width:240px;
         ">
-
-
-    <button id="searchBtn" 
-            style="
-            position:absolute;
-            top:15px; left:285px;
-            z-index:3000;
-            padding:6px 10px;
-            border:2px solid #ccc;
-            background:white;
-            border-radius:4px;
-            cursor:pointer;
-        ">
-    </button>
 
     <div id="searchResults"
      style="
          position:absolute;
-         top:55px; left:15px;
+         top:302px; left:10px;
          width:260px;
          max-height:300px;
          overflow-y:auto;
@@ -196,7 +256,7 @@
             // Folium-like Draw controls
             const drawnItems = new L.FeatureGroup();
             map.addLayer(drawnItems);
-
+            
             const drawControl = new L.Control.Draw
             (
                 {
@@ -206,12 +266,12 @@
                     },
                     draw:
                     {
-                    polygon: true,  
-                    rectangle: true,
-                    circle: true,
-                    polyline: false,
-                    marker: false,
-                    circlemarker: false
+                        polygon: true,  
+                        rectangle: true,
+                        circle: true,
+                        polyline: false,
+                        marker: false,
+                        circlemarker: false
                     }
                 }
             );
@@ -239,15 +299,16 @@
 
                 sidebarOpen = !sidebarOpen;
 
-                if (sidebarOpen) // If Sidebar is currently open:
+                if (sidebarOpen) // If Sidebar is to be opened
                 {
                     sidebar.style.width = SIDEBAR_WIDTH;
                     sidebar.setAttribute('aria-hidden', 'false');
                 }
-                else // If Sidebar is currently closed:
+                else // If Sidebar is to be closed:
                 {
                     sidebar.style.width = '0';
                     sidebar.setAttribute('aria-hidden', 'true');
+
                 }
 
                 toggleBtn.style.right = sidebarOpen ? SIDEBAR_WIDTH : '0';
@@ -318,10 +379,8 @@
                             ].filter(Boolean).join(", ");
 
                             const item = document.createElement("div");
+                            item.className = "search-result-item";
                             item.textContent = label;
-                            item.style.padding = "8px 10px";
-                            item.style.cursor = "pointer";
-                            item.style.borderBottom = "1px solid #eee";
 
                             item.addEventListener("mouseover", () => item.style.background = "#f0f0f0");
                             item.addEventListener("mouseout", () => item.style.background = "white");
@@ -332,7 +391,7 @@
                                     const lon = coords[0];
                                     const lat = coords[1];
 
-                                    map.setView([lat, lon], 6);
+                                    map.setView([lat, lon], 10);
 
                                     L.marker([lat, lon])
                                         .addTo(map)
@@ -353,17 +412,6 @@
                     alert("Search error: " + err);
                 }
             }
-
-
-
-            document.getElementById("searchBtn").addEventListener
-            (
-                "click", () =>
-                {
-                    const query = document.getElementById("searchBox").value.trim();
-                    if (query) searchLocation(query);
-                }
-            );
 
             document.getElementById("searchBox").addEventListener
             (
@@ -386,14 +434,15 @@
                 debounceTimer = setTimeout
                 (() =>
                     {
-                        if (query.length >= 2)
+                        if (query.length >= 1)
                         {
                             searchLocation(query);
-                        } else
+                        }
+                        else
                         {
                             document.getElementById("searchResults").style.display = "none";
                         }
-                    }, 200
+                    }, 250
                 );
             }
 
