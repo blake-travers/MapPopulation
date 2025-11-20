@@ -16,9 +16,9 @@
         <style>
             :root
             {
-                --color-bg: #486095;
+                --color-bg: #9fadc9;
                 --color-bg-border: #0c214e;
-                --color-bg-highlight: #6486ce;
+                --color-highlight: #cdd6e9;
             }
 
             body, html, div, input, button, h1, h2, h3, p
@@ -107,48 +107,34 @@
                 padding: 8px 10px;
                 cursor: pointer;
                 border-bottom: 1px solid #eee;
+                background: #f7f7f7;
+                transition: background 0.2s ease;
             }
 
             .search-result-item:hover
             {
-                background: #f0f0f0;
+                background: #cdd6e9;
             }
 
 
             /* Zoom control container */
-            .leaflet-control-zoom.leaflet-bar
-            {
-                border: 2px solid var(--color-bg-border);
-                border-radius: 4.3px;
-                background: var(--color-bg);
-            }
             .leaflet-control-zoom a
             {
-                background: var(--color-bg);
-                border-bottom: 2px solid var(--color-bg-border);
                 transition: background 0.2s, transform 0.2s;
             }
             .leaflet-control-zoom a:hover
             {
-                background-color: var(--color-bg-highlight);
+                background-color: var(--color-highlight);
             }
 
             /* Draw control container */
-            .leaflet-draw .leaflet-bar
-            {
-                border: 2px solid var(--color-bg-border);
-                border-radius: 4.3px;
-                background: var(--color-bg);
-            }
             .leaflet-draw .leaflet-bar a
             {
-                background: var(--color-bg);
-                border-bottom: 2px solid var(--color-bg-border);
                 transition: background 0.2s, transform 0.2s;
             }
             .leaflet-draw .leaflet-bar a:hover
             {
-                background-color: var(--color-bg-highlight);
+                background-color: var(--color-highlight);
             }
 
 
@@ -166,10 +152,11 @@
         spellcheck="false"
         style="
             position:absolute;
-            top:500px; left:10px;
+            top:270px; left:10px;
             z-index:3000;
             padding:6px 10px;
-            border:2px solid #ccc;
+            background: #f7f7f7;
+            border:2px solid #bebebe;
             border-radius:4px;
             width:240px;
         ">
@@ -180,9 +167,8 @@
          top:302px; left:10px;
          width:260px;
          max-height:300px;
-         overflow-y:auto;
-         background:white;
-         border:2px solid #ccc;
+         background:#f7f7f7;
+         border:2px solid #bebebe;
          border-radius:4px;
          z-index:3000;
          display:none;
@@ -198,8 +184,8 @@
 
             <div id="sidebar" aria-hidden="true">
                 <div class="sidebar-inner">
-                    <h2>Population Tool</h2>
-                    <p>Draw shapes on the map to estimate population.</p>
+                    <h2>Population by Shape on a Map</h2>
+                    <p>Use the tools on the left to draw a shape, to find out the population of inside that shape.</p>
                         <div id="infoArea">No shapes yet.</div>
                 </div>
             </div>
@@ -381,9 +367,6 @@
                             const item = document.createElement("div");
                             item.className = "search-result-item";
                             item.textContent = label;
-
-                            item.addEventListener("mouseover", () => item.style.background = "#f0f0f0");
-                            item.addEventListener("mouseout", () => item.style.background = "white");
 
                             item.addEventListener
                             ("click", () =>
