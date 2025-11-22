@@ -40,16 +40,7 @@ for lon in range(-180, 180, tile_size):
             format="GTiff"
         )
 
-        # Round values to improve storage efficiency
-        with rasterio.open(temp_raw, "r+") as ds:
-            arr = ds.read(1)
-
-            arr = np.round(arr, 2)
-            arr = arr.astype("float32")  # reduce dtype size
-
-            ds.write(arr, 1)
-
-        # Step 3: Resample tile to target resolution
+        # Resample tile to target resolution
         gdal.Translate(
             temp_resampled,
             temp_raw,
@@ -58,6 +49,15 @@ for lon in range(-180, 180, tile_size):
             resampleAlg="bilinear",
             format="GTiff"
         )
+
+        # Round values to improve storage efficiency
+        with rasterio.open(temp_resampled, "r+") as ds:
+            arr = ds.read(1)
+
+            arr = np.round(arr, 2)    # 2 decimal places
+            arr = arr.astype("float32")  # reduce dtype size
+
+            ds.write(arr, 1)
 
         # Convert to COG
         gdal.Translate(
@@ -69,8 +69,8 @@ for lon in range(-180, 180, tile_size):
                 "PREDICTOR=2",
                 "BLOCKSIZE=512",
                 "RESAMPLING=AVERAGE",
-                "OVERVIEWS=AUTO",
-                "BIGTIFF=YES",
+                "OVERVIEWS=AUTO", #Overviews all the way up to 2x2
+                "BIGTIFF=YES"
             ]
         )
 

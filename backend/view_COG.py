@@ -3,7 +3,7 @@ from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
 
-cog_path = "./cog_tiles/tile_([-180,-170],[-80,-70]).tif"
+cog_path = "./cog_tiles/tile_([-150,-140],[60,70]).tif"
 
 with rasterio.open(cog_path) as src:
     print("CRS:", src.crs)
