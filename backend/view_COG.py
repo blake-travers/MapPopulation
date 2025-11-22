@@ -3,7 +3,7 @@ from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
 
-cog_path = "./cog_tiles/tile_([-95,-90],[65,70]).tif"
+cog_path = "./cog_tiles/tile_([-180,-170],[-80,-70]).tif"
 
 with rasterio.open(cog_path) as src:
     print("CRS:", src.crs)
@@ -51,6 +51,6 @@ with rasterio.open(cog_path) as src:
     arr = np.clip(arr, 0, 20)
 
     plt.figure(figsize=(8, 8))
-    show(arr, cmap="gray")
+    #show(arr, cmap="gray")
     plt.title("COG Band 1 (clipped max=20)")
     plt.show()

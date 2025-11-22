@@ -1,3 +1,7 @@
 GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0
 
 cog_tiles
+cog_tiles_3arc
+
+.env
+*.env

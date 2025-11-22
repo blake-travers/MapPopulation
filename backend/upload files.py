@@ -3,12 +3,13 @@ import boto3
 import concurrent.futures
 from botocore.exceptions import ClientError
 import threading
+from dotenv import load_dotenv
 
 # ==== CONFIG ====
-R2_ACCESS_KEY = "1164015fadf05802c3a67d6665c105a1"
-R2_SECRET_KEY = "3b76f415e1ad19bfab2fb7726588ce7715596a568fa79b2934cc1f85caea6a6c"
-ACCOUNT_ID = "2d25f237b013343aaf1d21b860116b79"
-BUCKET_NAME = "population-cog-5"
+R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY")
+R2_SECRET_KEY = os.getenv("R2_SECRET_KEY")
+ACCOUNT_ID = os.getenv("ACCOUNT_ID")
+BUCKET_NAME = os.getenv("BUCKET_NAME")
 LOCAL_DIRECTORY = "cog_tiles"
 MAX_WORKERS = 32  # parallel uploads
 # ===============
