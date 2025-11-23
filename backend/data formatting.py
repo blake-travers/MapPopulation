@@ -14,7 +14,7 @@ os.makedirs(output_dir, exist_ok=True)
 tile_size = 10
 num_pixels = 2**13
 pixel_size = (tile_size*3600) / num_pixels
-for lon in range(40, 180, tile_size):
+for lon in range(0, 180, tile_size):
 
     # Loop latitude (-90 to 90)
     for lat in range(-90, 90, tile_size):

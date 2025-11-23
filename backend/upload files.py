@@ -63,5 +63,49 @@ def main():
             f.write("\n".join(failed_uploads))
         print("Saved failed upload list to failed_uploads.txt")
 
+
+import time
+
+def retry_failed_uploads(max_retries=3, retry_delay=5):
+    """
+    Retry uploading files listed in `failed_uploads` or `failed_uploads.txt`.
+    max_retries: number of retry attempts per file
+    retry_delay: seconds to wait between retries
+    """
+    global failed_uploads
+
+    # If there is a failed_uploads.txt file, load it
+    if os.path.exists("failed_uploads.txt"):
+        with open("failed_uploads.txt", "r") as f:
+            lines = [line.strip() for line in f if line.strip()]
+        failed_uploads = [(os.path.join(LOCAL_DIRECTORY, line), line) for line in lines]
+
+    if not failed_uploads:
+        print("No failed uploads to retry.")
+        return
+
+    print(f"\nRetry for {len(failed_uploads)} failed uploads...")
+    current_failures = []
+
+    for file_path, key in failed_uploads:
+        try:
+            s3.upload_file(file_path, BUCKET_NAME, key)
+            print(f"Uploaded on retry: {key}")
+        except Exception as e:
+            print(f"Retry FAILED: {key} -> {e}")
+            current_failures.append((file_path, key))
+
+
+    # Update the failed_uploads.txt file
+    if current_failures:
+        with open("failed_uploads.txt", "w") as f:
+            f.write("\n".join([k for _, k in current_failures]))
+        print(f"{len(current_failures)} files still failed.")
+    else:
+        if os.path.exists("failed_uploads.txt"):
+            os.remove("failed_uploads.txt")
+        print("All previously failed uploads succeeded!")
+
+
 if __name__ == "__main__":
-    main()
+    retry_failed_uploads()

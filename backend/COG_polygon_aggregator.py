@@ -93,10 +93,11 @@ class COGPolygonAggregator:
                     rasterio.coords.BoundingBox(mid_x, mid_y, bbox.right, bbox.top),#NE
                 ]
 
+                tile_population = 0
                 for child_bbox in quadrants:
-                    total += self._process_quadtree_node(src=src, bbox=child_bbox, depth=self.initial_depth)
+                    tile_population += self._process_quadtree_node(src=src, bbox=child_bbox, depth=self.initial_depth)
 
-                return total
+                return tile_population
             
     def _process_quadtree_node(self, src, bbox, depth):
         """
@@ -127,7 +128,7 @@ class COGPolygonAggregator:
             
         total = 0.0
 
-        def _read_data(src, depth):
+        def _read_data(src, depth, bbox):
             """
             Helper function to choose overview and read data based upon the current depth
 
@@ -139,12 +140,16 @@ class COGPolygonAggregator:
             """
             
             if depth == 0:
+                # full-res read
                 window = rasterio.windows.from_bounds(*bbox, transform=src.transform)
                 return src.read(1, window=window, masked=True)
-            elif depth <= 12:
-                with WarpedVRT(src, overview_level=(depth-1)) as vrt:
-                    window = rasterio.windows.from_bounds(*bbox, transform=vrt.transform)
-                    return vrt.read(1, window=window, masked=True)
+
+            else:
+                # use COG overview directly
+                ovr = depth - 1  # because overview index 0 is 2x downsample
+                ovr_transform = src.overview_transform(ovr)
+                window = rasterio.windows.from_bounds(*bbox, transform=ovr_transform)
+                return src.read(1, window=window, masked=True)
             
 
         #1. If this tile-point does not intersect the shape
@@ -155,7 +160,7 @@ class COGPolygonAggregator:
         #2. If this tile-point is entirely bounds by the shape
         elif self.polygon.contains(tile_bounds):
 
-            data = _read_data(src, depth)
+            data = _read_data(src, depth, bbox)
             
             total = float(data[data > 0].sum())
         
@@ -164,7 +169,7 @@ class COGPolygonAggregator:
             #3.1 If this is the highest resolution or the highest we have decided to do, take the proportion of the polygon intersected by the shape
             if depth <= self.max_depth:
 
-                data = _read_data(src, depth)
+                data = _read_data(src, depth, bbox)
                 total = float(data[data > 0].sum())
 
                 # Compute proportion of area interior
@@ -192,3 +197,121 @@ class COGPolygonAggregator:
                     total += self._process_quadtree_node(src=src, bbox=child_bbox, depth=depth-1)
 
         return total
+    
+if __name__ == "__main__":
+
+    aggregator = COGPolygonAggregator()
+
+    melbourne_square = {
+        "type": "Polygon",
+        "coordinates": [[
+            [144.955, -37.820],
+            [144.965, -37.820],
+            [144.965, -37.810],
+            [144.955, -37.810],
+            [144.955, -37.820]
+        ]]
+    }
+
+    europe_rectangle = {
+        "type": "Polygon",
+        "coordinates": [[
+            [10, 50],
+            [20, 50],
+            [20, 55],
+            [10, 55],
+            [10, 50]
+        ]]
+    }
+
+    australia_polygon = {
+        "type": "Polygon",
+        "coordinates": [[
+            [149, -36],
+            [151, -36],
+            [153, -34],
+            [153, -32],
+            [151, -30],
+            [149, -33],
+            [149, -36]
+        ]]
+    }
+
+    concave_poly = {
+        "type": "Polygon",
+        "coordinates": [[
+            [0, 0],
+            [4, 0],
+            [4, 4],
+            [2, 2],
+            [0, 4],
+            [0, 0]
+        ]]
+    }
+
+    huge_polygon = {
+        "type": "Polygon",
+        "coordinates": [[
+            [-10, 30],
+            [40, 30],
+            [40, 60],
+            [-10, 60],
+            [-10, 30]
+        ]]
+    }
+
+    tiny_polygon = {
+        "type": "Polygon",
+        "coordinates": [[
+            [12.0001, 48.0001],
+            [12.0002, 48.0001],
+            [12.0002, 48.0002],
+            [12.0001, 48.0002],
+            [12.0001, 48.0001]
+        ]]
+    }
+
+    # -------------------------------------------------------------
+    # 3. (IMPORTANT) Provide your list of COG keys in Cloudflare R2
+    # -------------------------------------------------------------
+    # Example format:
+    # tile_keys = [
+    #     "tiles/pop_0_0.tif",
+    #     "tiles/pop_0_1.tif",
+    #     ...
+    # ]
+
+    tile_keys = [
+        # TODO: replace with real paths (relative to bucket)
+        # Examples:
+        # "GHS_POP_E2025/tile_00_00.tif",
+        # "GHS_POP_E2025/tile_00_01.tif",
+    ]
+
+    if not tile_keys:
+        print("WARNING: No tile_keys supplied. Add your R2 COG paths before running.")
+        exit(1)
+
+    # -------------------------------------------------------------
+    # 4. Wrap test cases into a list
+    # -------------------------------------------------------------
+    tests = [
+        ("Melbourne CBD Square",     melbourne_square),
+        ("Europe Rectangle",         europe_rectangle),
+        ("Australia East Coast",     australia_polygon),
+        ("Concave Polygon",          concave_poly),
+        ("Huge Cross-Continent",     huge_polygon),
+        ("Tiny Pixel Polygon",       tiny_polygon),
+    ]
+
+    # -------------------------------------------------------------
+    # 5. Run all tests
+    # -------------------------------------------------------------
+    print("\n--- Running Polygon Aggregation Tests ---\n")
+
+    for name, poly in tests:
+        print(f"Testing: {name}")
+        result = aggregator.aggregate_polygon(poly, tile_keys, max_depth=0)
+        print(f"  Population = {result:,.2f}\n")
+
+    print("--- All tests complete ---")

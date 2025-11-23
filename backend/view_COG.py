@@ -3,67 +3,33 @@ from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
 
-cog_path = "./cog_tiles/tile_([-180,-170],[-80,-70]).tif"
+cog_path = "./cog_tiles/tile_([110,120],[30,40]).tif"
 
-with rasterio.open(cog_path) as src:
-    print("CRS:", src.crs)
-    print("Bounds:", src.bounds)
-    print("Bands:", src.count)
-    print("Width x Height:", src.width, "x", src.height)
+from osgeo import gdal
+import numpy as np
 
-    for b in range(1, src.count + 1):
-        band = src.read(b).astype(float)
+ds = gdal.Open(cog_path)
+band = ds.GetRasterBand(1)
 
-        print(f"\n=== Band {b} Info ===")
-        print("Shape:", band.shape, "| dtype:", band.dtype)
+base = band.ReadAsArray()
+print("=== Base Raster ===")
+print("Shape:", base.shape)
+print("Min:", np.min(base))
+print("Max:", np.max(base))
+print("Mean:", np.mean(base))
+print("Sum:", np.sum(base))
 
-        # --- Count NODATA / 0 / >0 ---
-        nodata = np.isnan(band) | np.isinf(band)
-        zero = (band == 0)
-        positive = band > 0
+# Overviews
+num_ovr = band.GetOverviewCount()
+for i in range(num_ovr):
+    ovr = band.GetOverview(i).ReadAsArray()
+    print(f"\n=== Overview {i} ===")
+    print("Shape:", ovr.shape)
+    print("Min:", np.min(ovr))
+    print("Max:", np.max(ovr))
+    print("Mean:", np.mean(ovr))
+    print("Sum:", np.sum(ovr))
+    factor = 8192 // ovr.shape[0]
+    total_pop = np.mean(ovr) * (ovr.shape[0]*factor) * (ovr.shape[1]*factor)
+    print(f"Overview {i} total population: {total_pop}")
 
-        print("NODATA pixels:", np.count_nonzero(nodata))
-        print("Zero-value pixels:", np.count_nonzero(zero))
-        print("Positive (>0) pixels:", np.count_nonzero(positive))
-
-        # --- Basic statistics ---
-        arr_valid = band[~nodata]
-        if arr_valid.size > 0:
-            print("Min:", np.nanmin(arr_valid))
-            print("Max:", np.nanmax(arr_valid))
-            print("Mean:", np.nanmean(arr_valid))
-        else:
-            print("All pixels are NODATA")
-
-        # --- Unique values (cap at 20 to avoid huge prints) ---
-        unique_vals = np.unique(arr_valid)
-        print(f"Unique values (showing up to 20): {unique_vals[:20]}")
-
-        # --- Small raw sample of pixel values (5x5 window) ---
-        print("\nSample 5x5 window:")
-        h, w = band.shape
-        h0 = min(5, h)
-        w0 = min(5, w)
-        print(band[:h0, :w0])
-
-    oviews = src.overviews(1)
-    print("Overview levels:", oviews)
-
-    for i, factor in enumerate(oviews):
-        print(f"\n=== Overview {i} (factor={factor}) ===")
-
-        # Read the overview
-        ovr = src.read(
-            1,
-            out_shape=(
-                1,
-                int(src.height / factor),
-                int(src.width / factor),
-            ),
-        )[0]
-
-        print("Shape:", ovr.shape, ovr.shape)
-        print("dtype:", ovr.dtype)
-        print("Min:", np.min(ovr))
-        print("Max:", np.max(ovr))
-        print("Mean:", np.mean(ovr))
