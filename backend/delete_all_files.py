@@ -42,5 +42,36 @@ def delete_all_files():
 
     print(f"\nDone. Total deleted: {total_deleted}")
 
+def abort_all_multipart_uploads():
+    paginator = s3.get_paginator("list_multipart_uploads")
+
+    total_aborted = 0
+
+    try:
+        for page in paginator.paginate(Bucket=BUCKET_NAME):
+            uploads = page.get("Uploads", [])
+            if not uploads:
+                continue
+
+            for upload in uploads:
+                key = upload["Key"]
+                upload_id = upload["UploadId"]
+
+                print(f"Aborting multipart upload: {key} ({upload_id})")
+
+                s3.abort_multipart_upload(
+                    Bucket=BUCKET_NAME,
+                    Key=key,
+                    UploadId=upload_id
+                )
+
+                total_aborted += 1
+
+    except s3.exceptions.NoSuchUpload:
+        pass
+
+    print(f"\nDone. Aborted {total_aborted} multipart uploads.")
+
 if __name__ == "__main__":
     delete_all_files()
+    abort_all_multipart_uploads()

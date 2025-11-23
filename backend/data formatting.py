@@ -14,7 +14,7 @@ os.makedirs(output_dir, exist_ok=True)
 tile_size = 10
 num_pixels = 2**13
 pixel_size = (tile_size*3600) / num_pixels
-for lon in range(-180, 180, tile_size):
+for lon in range(40, 180, tile_size):
 
     # Loop latitude (-90 to 90)
     for lat in range(-90, 90, tile_size):
@@ -42,8 +42,8 @@ for lon in range(-180, 180, tile_size):
 
         # Resample tile to target resolution
         gdal.Translate(
-            temp_resampled,
-            temp_raw,
+            temp_resampled, #End resolution
+            temp_raw, #Start resolution
             width=num_pixels,
             height=num_pixels,
             resampleAlg="bilinear",
@@ -59,6 +59,15 @@ for lon in range(-180, 180, tile_size):
 
             ds.write(arr, 1)
 
+        ds = gdal.Open(temp_resampled, gdal.GA_Update)
+        overview_levels = []
+        f = 2
+        while f < num_pixels:
+            overview_levels.append(f)
+            f *= 2
+        ds.BuildOverviews("AVERAGE", overview_levels)
+        ds = None
+
         # Convert to COG
         gdal.Translate(
             final_cog,
@@ -68,8 +77,6 @@ for lon in range(-180, 180, tile_size):
                 "COMPRESS=DEFLATE",
                 "PREDICTOR=2",
                 "BLOCKSIZE=512",
-                "RESAMPLING=AVERAGE",
-                "OVERVIEWS=AUTO", #Overviews all the way up to 2x2
                 "BIGTIFF=YES"
             ]
         )
