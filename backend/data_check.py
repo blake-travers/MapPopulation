@@ -6,7 +6,7 @@ import rasterio
 # Configuration
 # -------------------------
 output_dir = "cog_tiles"
-tile_size = 5
+tile_size = 30
 
 lon_start = -180   # your generation loop starts here
 lon_end = 180

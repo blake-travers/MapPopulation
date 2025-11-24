@@ -66,7 +66,7 @@ class COGPolygonAggregator:
             tile_total = self._process_single_tile(tile_url)
             total += tile_total
 
-        return total
+        return total * 2.197265625
 
     
     def _process_single_tile(self, tile_url: str) -> float:
@@ -101,6 +101,7 @@ class COGPolygonAggregator:
                     tile_population += self._process_quadtree_node(src=src, bbox=child_bbox, depth=self.initial_depth)
 
                 return tile_population
+
             
     def _process_quadtree_node(self, src, bbox, depth):
         """

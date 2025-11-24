@@ -108,4 +108,5 @@ def retry_failed_uploads(max_retries=3, retry_delay=5):
 
 
 if __name__ == "__main__":
+    main()
     retry_failed_uploads()
