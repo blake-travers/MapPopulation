@@ -125,44 +125,90 @@ class COGAggregatorGDAL:
         """
         Read a region of a GDAL COG at a specific quadtree depth.
 
-        depth = 0 → full resolution
-        depth >= 1 → overview index depth-1
+        depth = 0  -> full resolution
+        depth >= 1 -> overview index depth - 1
         """
-        band = ds.GetRasterBand(1)
 
-        # Select band (full res or overview)
+        band_full = ds.GetRasterBand(1)
+        full_gt = ds.GetGeoTransform()
+
         if depth == 0:
-            target_band = band
-            target_gt = ds.GetGeoTransform()
+            # Compute pixel window at FULL resolution
+            xoff, yoff, xsize, ysize = self._bbox_to_window(full_gt, bbox)
+
+            if xsize <= 0 or ysize <= 0:
+                return np.zeros((1, 1), dtype=np.float32)
+
+            arr = band_full.ReadAsArray(xoff, yoff, xsize, ysize)
+
+            if arr is None:
+                return np.zeros((1, 1), dtype=np.float32)
+
+            return np.array(arr, dtype=np.float32)
+        
         else:
-            idx = depth - 1
-            ovr = band.GetOverview(idx)
-            if ovr is None:
-                raise RuntimeError(f"Overview {idx} missing for depth {depth}")
-            target_band = ovr
-            target_gt = ovr.GetDataset().GetGeoTransform()
 
-        # Convert bbox -> pixel window
-        xoff, yoff, xsize, ysize = self._bbox_to_window(target_gt, bbox)
+            #Complexity is due to COG not storing overview Pixel Windows correctly - need to regenerate manually
 
-        if xsize <= 0 or ysize <= 0:
-            return np.zeros((1, 1), dtype=np.float32)
+            ovr_index = depth - 1
+            ovr_band = band_full.GetOverview(ovr_index)
 
-        arr = target_band.ReadAsArray(xoff, yoff, xsize, ysize)
+            if ovr_band is None:
+                raise RuntimeError(f"Overview {ovr_index} missing for depth {depth}")
 
-        if arr is None:
-            return np.zeros((1, 1), dtype=np.float32)
+            # Compute the downsampling factor between full-res and this overview
+            factor_x = ds.RasterXSize // ovr_band.XSize
+            factor_y = ds.RasterYSize // ovr_band.YSize
+            factor = max(factor_x, factor_y)
 
-        return np.array(arr, dtype=np.float32)
-    
+            # Compute the overview geotransform manually
+            ovr_gt = list(full_gt)
+            ovr_gt[1] = full_gt[1] * factor       # pixel width grows by scale
+            ovr_gt[5] = full_gt[5] * factor       # pixel height grows (negative)
+
+            ovr_gt = tuple(ovr_gt)
+
+            # Compute the window IN OVERVIEW SPACE
+            xoff, yoff, xsize, ysize = self._bbox_to_window(ovr_gt, bbox)
+
+            if xsize <= 0 or ysize <= 0:
+                return np.zeros((1, 1), dtype=np.float32)
+
+            # Read from the overview band (FAST)
+            arr = ovr_band.ReadAsArray(xoff, yoff, xsize, ysize)
+
+            if arr is None:
+                return np.zeros((1, 1), dtype=np.float32)
+
+            return np.array(arr, dtype=np.float32)
+
+
+def print_stats(name: str, arr: np.ndarray):
+    if arr.size == 0:
+        print(f"  {name} → EMPTY ARRAY")
+        return
+
+    # ignore zeros (consistent with your population masking logic)
+    valid = arr[arr > 0]
+
+    if valid.size == 0:
+        print(f"  {name} → all zeros")
+        return
+
+    print(f"  {name}:")
+    print(f"    min:  {valid.min():.4f}")
+    print(f"    max:  {valid.max():.4f}")
+    print(f"    mean: {valid.mean():.4f}")
+    print(f"    shape: {arr.shape}")
+
 def test_GDAL_Cloudfare():
 
     print("=== Testing GDAL Cloudflare R2 COG Access ===")
-hasattr
+
     agg = COGAggregatorGDAL()
 
     # Pick the first generated tile for testing
-    test_key = agg.tile_keys[0]
+    test_key = agg.tile_keys[26]
     print(f"\n[Test] Using tile key: {test_key}")
 
     url = agg._build_url(test_key)
@@ -191,31 +237,33 @@ hasattr
     )
 
     print("\n[Test] Reading full resolution data at bbox:", test_bbox)
-    data = agg._read_data_gdal(ds, depth=0, bbox=test_bbox)
-    print("  Full-res read shape:", data.shape)
-    print("  Full-res sample values:", data[:5, :5])
+
+    try:
+        data_ovr = agg._read_data_gdal(ds, depth=0, bbox=test_bbox)
+        print_stats("Overview depth=0", data_ovr)
+    except Exception as e:
+        print("  Overview read failed:", e)
 
     print("\n[Test] Trying overview read at depth=1")
     try:
         data_ovr = agg._read_data_gdal(ds, depth=1, bbox=test_bbox)
-        print("  Overview read shape:", data_ovr.shape)
-        print("  Overview sample values:", data_ovr[:5, :5])
+        print_stats("Overview depth=1", data_ovr)
     except Exception as e:
         print("  Overview read failed:", e)
+
 
     print("\n[Test] Trying overview read at depth=4")
     try:
         data_ovr = agg._read_data_gdal(ds, depth=4, bbox=test_bbox)
-        print("  Overview read shape:", data_ovr.shape)
-        print("  Overview sample values:", data_ovr[:5, :5])
+        print_stats("Overview depth=4", data_ovr)
     except Exception as e:
         print("  Overview read failed:", e)
 
-        print("\n[Test] Trying overview read at depth=12")
+
+    print("\n[Test] Trying overview read at depth=12")
     try:
         data_ovr = agg._read_data_gdal(ds, depth=12, bbox=test_bbox)
-        print("  Overview read shape:", data_ovr.shape)
-        print("  Overview sample values:", data_ovr[:5, :5])
+        print_stats("Overview depth=12", data_ovr)
     except Exception as e:
         print("  Overview read failed:", e)
 

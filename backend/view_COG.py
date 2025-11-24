@@ -3,7 +3,7 @@ from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
 
-cog_path = "./cog_tiles/tile_([0,30],[30,60]).tif"
+cog_path = "./cog_tiles/tile_([-60,-30],[-30,0]).tif"
 
 from osgeo import gdal
 import numpy as np
