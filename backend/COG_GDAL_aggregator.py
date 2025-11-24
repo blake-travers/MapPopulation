@@ -1,7 +1,10 @@
 from osgeo import gdal
 from typing import Dict, List
-from shapely.geometry import shape
+from shapely.geometry import shape  
+from shapely.geometry import box
+from shapely.geometry import Polygon  
 import numpy as np
+import time
 
 class COGAggregatorGDAL:
     def __init__(self,
@@ -20,7 +23,7 @@ class COGAggregatorGDAL:
         self.bucket_name = bucket_name
         self.account_id = account_id
         self.region = region
-        self.initial_depth = 14
+        self.initial_depth = 13
 
         # Cloudflare R2 endpoint (NO https:// — GDAL adds automatically)
         self.endpoint = f"{self.account_id}.r2.cloudflarestorage.com"
@@ -55,17 +58,22 @@ class COGAggregatorGDAL:
             raise ValueError(f"Tile size {tile_size}° does not evenly divide the globe.")
 
         keys = []
+        self.tile_bounds = [] 
 
         print(f"Building Keys for tile_size of {tile_size}")
-        print(f'Pixel Size: {(tile_size*3600)/(2**self.initial_depth)}" or {tile_size/(2**self.initial_depth)}°')
+        print(f'Pixel Size: {(tile_size*3600)/(2**(self.initial_depth+1))}" or {tile_size/(2**(self.initial_depth+1))}°')
 
         for lon1 in range(-180, 180, tile_size):
             lon2 = lon1 + tile_size
 
             for lat1 in range(-90, 90, tile_size):
                 lat2 = lat1 + tile_size
-
+                
                 key = f"tile_([{lon1},{lon2}],[{lat1},{lat2}]).tif"
+
+                # store parsed bounds + key
+                self.tile_bounds.append( ((lon1, lat1, lon2, lat2), key) )
+
                 keys.append(key)
 
         return keys
@@ -76,7 +84,13 @@ class COGAggregatorGDAL:
         """
         print(f"Building URL /vsis3/{self.bucket_name}/{key}")
         return f"/vsis3/{self.bucket_name}/{key}"
-
+    
+    def _open_tile(self, url: str):
+        """Open a COG tile via GDAL and return the dataset."""
+        ds = gdal.Open(url)
+        if ds is None:
+            raise RuntimeError(f"GDAL could not open COG: {url}")
+        return ds
 
     def aggregate_polygon(self, polygon_geojson: Dict, max_depth: int = 0) -> float:
         """
@@ -85,15 +99,44 @@ class COGAggregatorGDAL:
         """
         self.max_depth = max_depth
         self.polygon = shape(polygon_geojson)
-        
-
         total = 0.0
-        for key in self.tile_keys:
+        pxmin, pymin, pxmax, pymax = self.polygon.bounds
+ 
+        #Determine if Tile intersects with rectangular representation of polygon
+        candidate_tiles = []
+        for (lon1, lat1, lon2, lat2), key in self.tile_bounds:
+            
+            if not (pxmax < lon1 or lon2 < pxmin or pymax < lat1 or lat2 < pymin):
+                candidate_tiles.append(((lon1, lat1, lon2, lat2), key))
+
+        #Determine if Tile intersects at all with rectangular representation of polygon
+        candidate_tiles2 = []
+        for (lon1, lat1, lon2, lat2), key in candidate_tiles:
+            tile_poly = box(lon1, lat1, lon2, lat2)
+
+            if tile_poly.intersects(self.polygon):
+                candidate_tiles2.append(((lon1, lat1, lon2, lat2), key))
+
+        #For all other tiles, start running recursive algorithm
+        for (lon1, lat1, lon2, lat2), key in candidate_tiles2:
+            t0 = time.time()
+
             url = self._build_url(key)
             ds = self._open_tile(url)
 
-            print("Opened COG:", url, ds.RasterXSize, ds.RasterYSize)
+            t_open = time.time() - t0
+            t1 = time.time()
 
+            tile_bbox = (lon1, lat1, lon2, lat2)
+            tile_pop = self._process_single_tile(ds, tile_bbox)
+
+            t_proc = time.time() - t1
+
+            total += tile_pop
+
+            print(f"Opened COG: url: {url}, size: ({ds.RasterXSize}x{ds.RasterYSize}). Tile Population added: {tile_pop}")
+            print(f"    Open time: {t_open:.4f} sec")
+            print(f"    Process time: {t_proc:.4f} sec")
 
         return total
     
@@ -148,7 +191,7 @@ class COGAggregatorGDAL:
         
         else:
 
-            #Complexity is due to COG not storing overview Pixel Windows correctly - need to regenerate manually
+            #Complexity of this part is due to COG not storing overview Pixel Windows correctly - need to regenerate manually
 
             ovr_index = depth - 1
             ovr_band = band_full.GetOverview(ovr_index)
@@ -181,6 +224,92 @@ class COGAggregatorGDAL:
                 return np.zeros((1, 1), dtype=np.float32)
 
             return np.array(arr, dtype=np.float32)
+        
+    def _process_single_tile(self, ds, tile_bbox) -> float:
+        """
+        Process a single tile using quadtrees. Starts by dividing tile into four parts representing the coarsest overview
+
+        tile_bbox: (xmin, ymin, xmax, ymax) of the whole tile in geo coords.
+        """
+
+        xmin, ymin, xmax, ymax = tile_bbox
+
+        # Split into 4 quadrants (SW, SE, NW, NE)
+        mid_x = (xmin + xmax) / 2.0
+        mid_y = (ymin + ymax) / 2.0
+
+        quadrants = [
+            (xmin, ymin, mid_x, mid_y),  # SW
+            (mid_x, ymin, xmax, mid_y),  # SE
+            (xmin, mid_y, mid_x, ymax),  # NW
+            (mid_x, mid_y, xmax, ymax),  # NE
+        ]
+
+        tile_population = 0.0
+        for child_bbox in quadrants:
+            tile_population += self._process_quadtree_node(ds=ds, bbox=child_bbox, depth=self.initial_depth)
+
+        return tile_population
+    
+    def _process_quadtree_node(self, ds, bbox, depth: int) -> float:
+        """
+        Recursively process a raster region using quadtrees.
+
+        bbox: (xmin, ymin, xmax, ymax) in geographic coordinates.
+        depth:
+            - controls which overview / resolution is used
+            - is decreased as we go deeper
+        """
+        total = 0.0
+
+        #Convert bounding box into a Shapley polygon
+        xmin, ymin, xmax, ymax = bbox
+        tile_bounds = Polygon([
+            (xmin, ymin),
+            (xmin, ymax),
+            (xmax, ymax),
+            (xmax, ymin),
+        ])
+
+        #1. If this node does not intersect the shape
+        if not tile_bounds.intersects(self.polygon):
+            return 0.0
+
+        #2. If this node is entirely inside the shape
+        elif self.polygon.contains(tile_bounds):
+
+            data = self._read_data_gdal(ds, depth, bbox)
+            total = float(data[data > 0].sum())
+            return total
+
+        #3.If this node is partially inside the shape
+        elif depth <= self.max_depth:
+            #3.1 If we've reached maximum depth: read data once and weight by intersection proportion
+            data = self._read_data_gdal(ds, depth, bbox)
+            total = float(data[data > 0].sum())
+
+            intersection_area = tile_bounds.intersection(self.polygon).area
+            proportion = intersection_area / tile_bounds.area if tile_bounds.area > 0 else 0.0
+
+            total *= proportion
+            return total
+        else:
+            #3.2 If we've not yet reached maximum depth, recusrively go one resolution deeper
+            mid_x = (xmin + xmax) / 2.0
+            mid_y = (ymin + ymax) / 2.0
+
+            quadrants = [
+                (xmin, ymin, mid_x, mid_y),  # SW
+                (mid_x, ymin, xmax, mid_y),  # SE
+                (xmin, mid_y, mid_x, ymax),  # NW
+                (mid_x, mid_y, xmax, ymax),  # NE
+            ]
+
+            for child_bbox in quadrants:
+                total += self._process_quadtree_node(ds=ds,bbox=child_bbox,depth=depth - 1)
+
+            return total
+
 
 
 def print_stats(name: str, arr: np.ndarray):
@@ -270,5 +399,38 @@ def test_GDAL_Cloudfare():
 
     print("\n=== Debug test complete ===")
 
+def test_polygons():
+    agg = COGAggregatorGDAL()
+
+    example_polygons = [
+        ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}),
+        ("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}),
+        ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}),
+        ("Concave polygon test", {"type": "Polygon","coordinates": [[[0, 0],[4, 0],[4, 4],[2, 2],[0, 4],[0, 0]]]}),
+        ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}),
+        ("Tiny subpixel polygon", {"type": "Polygon","coordinates": [[[12.0001, 48.0001],[12.0002, 48.0001],[12.0002, 48.0002],[12.0001, 48.0002],[12.0001, 48.0001]]]})
+    ]
+
+    print("\n--- Running COG polygon tests ---\n")
+
+    for name, polygon in example_polygons:
+        print(f"Testing: {name}")
+        
+        start = time.time()
+        try:
+            pop = agg.aggregate_polygon(polygon_geojson=polygon, max_depth=0)
+
+            dt = time.time() - start
+
+            print(f"  Population = {pop:,.2f}")
+            print(f"  Time taken = {dt:.4f} seconds\n")
+
+        except Exception as e:
+            print(f"  ERROR: {e}\n")
+
+    print("--- All tests completed ---")
+
 if __name__ == "__main__":
-    test_GDAL_Cloudfare()
+    #test_GDAL_Cloudfare()
+    test_polygons()
+    #debug_one_scenario()
