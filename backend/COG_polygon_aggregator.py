@@ -6,6 +6,7 @@ from rasterio.mask import mask
 from shapely.geometry import shape, Polygon
 import boto3
 from typing import List, Dict, Tuple, Optional
+from osgeo import gdal
 
 
 class COGPolygonAggregator:
@@ -19,31 +20,33 @@ class COGPolygonAggregator:
     """
 
     def __init__(self,
-                 token_value: str = "5iklW0_uCgqnyqxE1ileSPvhmY6hpoBMoAobdWim",
-                 access_key: str = "432716138e0e713176e09d50bb147059",
-                 secret_key: str = "e0941d80a20d875e84edc59d53bbf7b62758565879e7ec46f7e8eab4f242b7df",
+                 access_key: str = "58adf3b5b777e3c092c0cee45526d9d7",
+                 secret_key: str = "da5a69fe0348576e274097a1d49b3aa78f8548159733234478da6e8dfd3f61da",
                  account_id: str = "2d25f237b013343aaf1d21b860116b79",
                  bucket_name: str = "population-cog-5",
                  region: str = "auto",):
 
-        self.token_value = token_value
         self.access_key = access_key
         self.secret_key = secret_key
         self.account_id = account_id
         self.bucket_name = bucket_name
         self.region = region
-        self.initial_depth = 12
+        self.initial_depth = 14
 
-        self.endpoint = f"https://{self.account_id}.r2.cloudflarestorage.com"
+        self.endpoint = f"{self.account_id}.r2.cloudflarestorage.com"
 
-        self.session = AWSSession(boto3.Session(aws_access_key_id=self.access_key, aws_secret_access_key=self.secret_key, region_name=self.region,), endpoint_url=self.endpoint)
+        gdal.SetConfigOption("AWS_ACCESS_KEY_ID", self.access_key)
+        gdal.SetConfigOption("AWS_SECRET_ACCESS_KEY", self.secret_key)
+        gdal.SetConfigOption("AWS_S3_ENDPOINT", self.endpoint)
+        gdal.SetConfigOption("AWS_REGION", self.region)
+        gdal.SetConfigOption("AWS_VIRTUAL_HOSTING", "FALSE")
 
 
     def _build_url(self, key: str) -> str:
         """
         Helper: Build URL for a given COG tile
         """
-        return f"{self.endpoint}/{self.bucket_name}/{key}"
+        return f"/vsis3/{self.bucket_name}/{key}"
 
     def aggregate_polygon(self, polygon_geojson: Dict, tile_keys: List[str], max_depth: int = 0) -> float:
         """
@@ -75,7 +78,7 @@ class COGPolygonAggregator:
         12: Lowest resolution (5 degrees) (2x2 overview)
         """
 
-        with rasterio.Env(self.session):
+        with rasterio.Env():
             with rasterio.open(tile_url) as src:
                 # root = entire tile bbox
                 bbox = src.bounds
@@ -197,121 +200,3 @@ class COGPolygonAggregator:
                     total += self._process_quadtree_node(src=src, bbox=child_bbox, depth=depth-1)
 
         return total
-    
-if __name__ == "__main__":
-
-    aggregator = COGPolygonAggregator()
-
-    melbourne_square = {
-        "type": "Polygon",
-        "coordinates": [[
-            [144.955, -37.820],
-            [144.965, -37.820],
-            [144.965, -37.810],
-            [144.955, -37.810],
-            [144.955, -37.820]
-        ]]
-    }
-
-    europe_rectangle = {
-        "type": "Polygon",
-        "coordinates": [[
-            [10, 50],
-            [20, 50],
-            [20, 55],
-            [10, 55],
-            [10, 50]
-        ]]
-    }
-
-    australia_polygon = {
-        "type": "Polygon",
-        "coordinates": [[
-            [149, -36],
-            [151, -36],
-            [153, -34],
-            [153, -32],
-            [151, -30],
-            [149, -33],
-            [149, -36]
-        ]]
-    }
-
-    concave_poly = {
-        "type": "Polygon",
-        "coordinates": [[
-            [0, 0],
-            [4, 0],
-            [4, 4],
-            [2, 2],
-            [0, 4],
-            [0, 0]
-        ]]
-    }
-
-    huge_polygon = {
-        "type": "Polygon",
-        "coordinates": [[
-            [-10, 30],
-            [40, 30],
-            [40, 60],
-            [-10, 60],
-            [-10, 30]
-        ]]
-    }
-
-    tiny_polygon = {
-        "type": "Polygon",
-        "coordinates": [[
-            [12.0001, 48.0001],
-            [12.0002, 48.0001],
-            [12.0002, 48.0002],
-            [12.0001, 48.0002],
-            [12.0001, 48.0001]
-        ]]
-    }
-
-    # -------------------------------------------------------------
-    # 3. (IMPORTANT) Provide your list of COG keys in Cloudflare R2
-    # -------------------------------------------------------------
-    # Example format:
-    # tile_keys = [
-    #     "tiles/pop_0_0.tif",
-    #     "tiles/pop_0_1.tif",
-    #     ...
-    # ]
-
-    tile_keys = [
-        # TODO: replace with real paths (relative to bucket)
-        # Examples:
-        # "GHS_POP_E2025/tile_00_00.tif",
-        # "GHS_POP_E2025/tile_00_01.tif",
-    ]
-
-    if not tile_keys:
-        print("WARNING: No tile_keys supplied. Add your R2 COG paths before running.")
-        exit(1)
-
-    # -------------------------------------------------------------
-    # 4. Wrap test cases into a list
-    # -------------------------------------------------------------
-    tests = [
-        ("Melbourne CBD Square",     melbourne_square),
-        ("Europe Rectangle",         europe_rectangle),
-        ("Australia East Coast",     australia_polygon),
-        ("Concave Polygon",          concave_poly),
-        ("Huge Cross-Continent",     huge_polygon),
-        ("Tiny Pixel Polygon",       tiny_polygon),
-    ]
-
-    # -------------------------------------------------------------
-    # 5. Run all tests
-    # -------------------------------------------------------------
-    print("\n--- Running Polygon Aggregation Tests ---\n")
-
-    for name, poly in tests:
-        print(f"Testing: {name}")
-        result = aggregator.aggregate_polygon(poly, tile_keys, max_depth=0)
-        print(f"  Population = {result:,.2f}\n")
-
-    print("--- All tests complete ---")

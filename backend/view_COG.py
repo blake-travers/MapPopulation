@@ -3,7 +3,7 @@ from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
 
-cog_path = "./cog_tiles/tile_([110,120],[30,40]).tif"
+cog_path = "./cog_tiles/tile_([-180,-150],[-30,-0]).tif"
 
 from osgeo import gdal
 import numpy as np
@@ -29,7 +29,7 @@ for i in range(num_ovr):
     print("Max:", np.max(ovr))
     print("Mean:", np.mean(ovr))
     print("Sum:", np.sum(ovr))
-    factor = 8192 // ovr.shape[0]
+    factor = 2**15 // ovr.shape[0]
     total_pop = np.mean(ovr) * (ovr.shape[0]*factor) * (ovr.shape[1]*factor)
-    print(f"Overview {i} total population: {total_pop}")
+    #print(f"Overview {i} total population: {total_pop}")
 
