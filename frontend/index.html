@@ -263,14 +263,47 @@
             );
             map.addControl(drawControl);
 
-            map.on(L.Draw.Event.CREATED, function (event)
+            //Functionality to Call FastAPI and Backend
+            map.on(L.Draw.Event.CREATED, async function (event)
             {
                 const layer = event.layer;
                 drawnItems.addLayer(layer);
                 const geojson = layer.toGeoJSON();
-                console.log("Exported GeoJSON:", geojson);
-                alert("Shape drawn! GeoJSON logged to console.");
+
+                const infoArea = document.getElementById("infoArea");
+                infoArea.innerHTML = "<b>Calculating population...</b>";
+
+                try
+                {
+                    const response = await fetch("http://127.0.0.1:8000/population", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            polygon: geojson.geometry,   // <-- only send the geometry
+                            max_depth: 0                 // you can tweak this
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    infoArea.innerHTML = `
+                        <h3>Population</h3>
+                        <p><b>Total:</b> ${data.population.toLocaleString()}</p>
+                    `;
+                }
+                catch (err)
+                {
+                    console.error("Population error:", err);
+                    infoArea.innerHTML = "<b style='color:red'>Error calculating population.</b>";
+                }
             });
+
         
             sidebar.style.transition = 'none';
             toggleBtn.style.transition = 'none';

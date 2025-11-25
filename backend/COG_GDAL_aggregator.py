@@ -433,4 +433,3 @@ def test_polygons():
 if __name__ == "__main__":
     #test_GDAL_Cloudfare()
     test_polygons()
-    #debug_one_scenario()
