@@ -3,7 +3,7 @@ from rasterio.plot import show
 import matplotlib.pyplot as plt
 import numpy as np
 
-cog_path = "./cog_tiles/tile_([-60,-30],[-30,0]).tif"
+cog_path = "./cog_tiles/tile_([78,80],[27,29]).tif"
 
 from osgeo import gdal
 import numpy as np
@@ -17,7 +17,7 @@ print("Shape:", base.shape)
 print("Min:", np.min(base))
 print("Max:", np.max(base))
 print("Mean:", np.mean(base))
-print("Sum:", np.sum(base)*17.578)
+print("Sum:", np.sum(base))
 
 # Overviews
 num_ovr = band.GetOverviewCount()
@@ -28,7 +28,7 @@ for i in range(num_ovr):
     print("Min:", np.min(ovr))
     print("Max:", np.max(ovr))
     print("Mean:", np.mean(ovr))
-    factor = (2**11 // ovr.shape[0]) * 2.197
-    total_pop = np.mean(ovr) * (ovr.shape[0]*factor) * (ovr.shape[1]*factor)
+    #factor = (2**11 // ovr.shape[0]) * 2.197
+    #total_pop = np.mean(ovr) * (ovr.shape[0]*factor) * (ovr.shape[1]*factor)
+    total_pop = np.sum(ovr)
     print(f"Overview {i} total population: {total_pop}")
-
