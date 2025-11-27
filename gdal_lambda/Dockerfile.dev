@@ -1,0 +1,21 @@
+# Dockerfile.dev
+FROM ghcr.io/lambgeo/lambda-gdal:3.8-python3.11
+
+WORKDIR /app
+
+# 1) Install GDAL Python bindings, version matched to the C libs
+#    gdal-config --version comes from the lambgeo image
+RUN python3 -m pip install --no-cache-dir "GDAL==$(gdal-config --version)"
+
+# 2) Your extra Python deps (NO GDAL here)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 3) Your code
+COPY app.py .
+COPY lambda_COG_aggregator.py .
+
+ENTRYPOINT ["python3", "app.py"]
+
+#docker build -f Dockerfile.dev -t gdal-dev .
+#docker run --rm gdal-dev
