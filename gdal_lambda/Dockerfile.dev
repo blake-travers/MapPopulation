@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 3) Your code
 COPY app.py .
-COPY lambda_COG_aggregator.py .
+COPY population_aggregator.py .
 
 ENTRYPOINT ["python3", "app.py"]
 

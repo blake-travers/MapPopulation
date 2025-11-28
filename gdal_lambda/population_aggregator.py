@@ -1,16 +1,14 @@
+from osgeo import gdal
 from typing import Dict, List
-from shapely.geometry import shape, box, Polygon
+from shapely.geometry import shape  
+from shapely.geometry import box
+from shapely.geometry import Polygon  
 import numpy as np
 import time
-import subprocess
 import os
+import math
 
-
-class PopulationAggregator:
-    """
-    Logic behind Population Aggregator
-    
-    """
+class COGAggregatorGDAL:
     def __init__(self, bucket_name: str = None, tile_size: int = 30, initial_depth: int = 13):
         """
         GDAL-CLI based COG aggregator for AWS Lambda + S3.
@@ -18,9 +16,15 @@ class PopulationAggregator:
         """
 
         # ---- AWS CONFIG ----
-        self.bucket_name = bucket_name or os.environ.get("COG_BUCKET_NAME", "population-cog20")
+        self.bucket_name = bucket_name or os.environ.get("COG_BUCKET_NAME")
+        self.region = "s3.ap-southeast-4.amazonaws.com"
+        if not self.bucket_name:
+            raise RuntimeError("COG_BUCKET_NAME must be set")
 
-        self.region = os.environ.get("AWS_REGION", "ap-southeast-4")
+        
+        gdal.SetConfigOption("GDAL_DISABLE_READDIR_ON_OPEN", "YES")
+        gdal.SetConfigOption("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ".tif,.tiff,.ovr")
+        gdal.SetConfigOption("AWS_S3_ENDPOINT",self.region)
 
         # ---- CLASS CONFIG ----
         self.initial_depth = initial_depth
@@ -65,6 +69,23 @@ class PopulationAggregator:
 
                 self.tile_keys.append(key)
 
+    def _build_url(self, key: str) -> str:
+        """
+        Build a GDAL /vsis3/ URL to a COG tile.
+        """
+        print(f"Building URL /vsis3/{self.bucket_name}/{key}")
+        return f"/vsis3/{self.bucket_name}/{key}"
+    
+    def _open_tile(self, url: str):
+        """Open a COG tile via GDAL and return the dataset."""
+        ds = gdal.Open(url)
+        if ds is None:
+            err = gdal.GetLastErrorMsg()
+            raise RuntimeError(f"GDAL could not open COG: {url}\n{err}")
+        return ds
+        
+        
+
     def aggregate_polygon(self, polygon_geojson: Dict, max_depth: int = 0) -> float:
         """
         Placeholder aggregator entry point — we will replace all Rasterio code
@@ -97,6 +118,8 @@ class PopulationAggregator:
             url = self._build_url(key)
             ds = self._open_tile(url)
 
+            self.scales = self._get_scales(ds)
+
             t_open = time.time() - t0
             t1 = time.time()
 
@@ -112,20 +135,14 @@ class PopulationAggregator:
             print(f"    Process time: {t_proc:.4f} sec")
 
         return total
-
-    def _build_url(self, key: str) -> str:
-        return f"/vsis3/{self.bucket_name}/{key}"
     
-    def _sum_bbox(self, key: str, bbox, depth: int) -> float:
-        raise NotImplementedError
-
     def _world_to_pixel(self, gt, x, y):
         """
         Convert geographic coordinates (x, y) into pixel offsets.
         gt = ds.GetGeoTransform()
         """
-        px = int((x - gt[0]) / gt[1])
-        py = int((y - gt[3]) / gt[5])  # note: gt[5] is negative
+        px = math.floor((x - gt[0]) / gt[1])
+        py = math.floor((y - gt[3]) / gt[5])
         return px, py
     
     def _bbox_to_window(self, gt, bbox):
@@ -143,7 +160,84 @@ class PopulationAggregator:
 
         return xoff, yoff, xsize, ysize
     
+    def _get_scales(self, ds):
+        """
+        Read and cache PYRAMID_SCALES metadata from the first band.
+        Returns a list of floats or None if not present.
+        """
 
+        band = ds.GetRasterBand(1)
+        scale_str = band.GetMetadataItem("PYRAMID_SCALES")
+        if scale_str is None:
+            return None
+        return list(map(float, scale_str.split(",")))
+
+    
+    def _read_data_gdal(self, ds, depth, bbox):
+        """
+        Read a region of a GDAL COG at a specific quadtree depth.
+
+        depth = 0  -> full resolution
+        depth >= 1 -> overview index depth - 1
+        """
+
+        band_full = ds.GetRasterBand(1)
+        full_gt = ds.GetGeoTransform()
+
+        if depth == 0:
+            # Compute pixel window at FULL resolution
+            xoff, yoff, xsize, ysize = self._bbox_to_window(full_gt, bbox)
+
+            if xsize <= 0 or ysize <= 0:
+                return np.zeros((1, 1), dtype=np.float32)
+
+            arr = band_full.ReadAsArray(xoff, yoff, xsize, ysize)
+
+            if arr is None:
+                return np.zeros((1, 1), dtype=np.float32)
+            
+            arr /= self.scales[0]
+
+            return np.array(arr, dtype=np.float32)
+        
+        else:
+
+            #Complexity of this part is due to COG not storing overview Pixel Windows correctly - need to regenerate manually
+
+            ovr_index = depth - 1
+            ovr_band = band_full.GetOverview(ovr_index)
+
+            if ovr_band is None:
+                raise RuntimeError(f"Overview {ovr_index} missing for depth {depth}")
+
+            # Compute the downsampling factor between full-res and this overview
+            factor_x = ds.RasterXSize // ovr_band.XSize
+            factor_y = ds.RasterYSize // ovr_band.YSize
+            factor = max(factor_x, factor_y)
+
+            # Compute the overview geotransform manually
+            ovr_gt = list(full_gt)
+            ovr_gt[1] = full_gt[1] * factor       # pixel width grows by scale
+            ovr_gt[5] = full_gt[5] * factor       # pixel height grows (negative)
+
+            ovr_gt = tuple(ovr_gt)
+
+            # Compute the window IN OVERVIEW SPACE
+            xoff, yoff, xsize, ysize = self._bbox_to_window(ovr_gt, bbox)
+
+            if xsize <= 0 or ysize <= 0:
+                return np.zeros((1, 1), dtype=np.float32)
+
+            # Read from the overview band (FAST)
+            arr = ovr_band.ReadAsArray(xoff, yoff, xsize, ysize)
+
+            if arr is None:
+                return np.zeros((1, 1), dtype=np.float32)
+            
+            arr /= self.scales[depth]
+
+            return np.array(arr, dtype=np.float32)
+        
     def _process_single_tile(self, ds, tile_bbox) -> float:
         """
         Process a single tile using quadtrees. Starts by dividing tile into four parts representing the coarsest overview
@@ -197,14 +291,14 @@ class PopulationAggregator:
         #2. If this node is entirely inside the shape
         elif self.polygon.contains(tile_bounds):
 
-            data = self._sum_bbox(ds, depth, bbox)
+            data = self._read_data_gdal(ds, depth, bbox)
             total = float(data[data > 0].sum())
             return total
 
         #3.If this node is partially inside the shape
         elif depth <= self.max_depth:
             #3.1 If we've reached maximum depth: read data once and weight by intersection proportion
-            data = self._sum_bbox(ds, depth, bbox)
+            data = self._read_data_gdal(ds, depth, bbox)
             total = float(data[data > 0].sum())
 
             intersection_area = tile_bounds.intersection(self.polygon).area
@@ -228,3 +322,39 @@ class PopulationAggregator:
                 total += self._process_quadtree_node(ds=ds,bbox=child_bbox,depth=depth - 1)
 
             return total
+
+
+def test_polygons():
+    agg = COGAggregatorGDAL(bucket_name = "population-cog20")
+
+    example_polygons = [
+        ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}),
+        ("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}),
+        ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}),
+        ("Concave polygon test", {"type": "Polygon","coordinates": [[[0, 0],[4, 0],[4, 4],[2, 2],[0, 4],[0, 0]]]}),
+        ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}),
+        ("Tiny subpixel polygon", {"type": "Polygon","coordinates": [[[12.0001, 48.0001],[12.0002, 48.0001],[12.0002, 48.0002],[12.0001, 48.0002],[12.0001, 48.0001]]]})
+    ]
+
+    print("\n--- Running COG polygon tests ---\n")
+
+    for name, polygon in example_polygons:
+        print(f"Testing: {name}")
+        
+        start = time.time()
+        try:
+            pop = agg.aggregate_polygon(polygon_geojson=polygon, max_depth=0)
+
+            dt = time.time() - start
+
+            print(f"  Population = {pop:,.2f}")
+            print(f"  Time taken = {dt:.4f} seconds\n")
+
+        except Exception as e:
+            print(f"  ERROR: {e}\n")
+
+    print("--- All tests completed ---")
+
+if __name__ == "__main__":
+    #test_GDAL_Cloudfare()
+    test_polygons()
