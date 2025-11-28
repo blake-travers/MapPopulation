@@ -16,20 +16,45 @@ def gdal_version():
 
 
 def lambda_handler(event, context):
-    # Optional mode flag
-    if event.get("mode") == "test":
+    try:
+        body = event.get("body")
+        if body is None:
+            raise ValueError("Missing request body")
+
+        if isinstance(body, str):
+            body = json.loads(body)
+
+        polygon = body["polygon"]
+        max_depth = body.get("max_depth", 0)
+
+        agg = COGAggregatorGDAL(bucket_name="population-cog20")
+        population = agg.aggregate_polygon(
+            polygon_geojson=polygon,
+            max_depth=max_depth
+        )
+
         return {
             "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
             "body": json.dumps({
-                "mode": "polygon_test",
-                "results": run_polygon_tests()
+                "population": population
             })
         }
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"mode": "lambda_alive"})
-    }
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "error": str(e)
+            })
+        }
 
 def run_polygon_tests():
     agg = COGAggregatorGDAL(bucket_name="population-cog20")

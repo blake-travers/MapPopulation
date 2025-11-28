@@ -30,10 +30,10 @@ class COGAggregatorGDAL:
         self.initial_depth = initial_depth
         self.tile_size = tile_size
 
-        print("Class Initialisation")
-        print(f"  Bucket: {self.bucket_name}")
-        print(f"  Region: {self.region}")
-        print(f"  Default depth: {self.initial_depth}")
+        #print("Class Initialisation")
+        #print(f"  Bucket: {self.bucket_name}")
+        #print(f"  Region: {self.region}")
+        #print(f"  Default depth: {self.initial_depth}")
 
         # Precompute tile bounds + keys
         self._generate_global_tile_keys(tile_size=self.tile_size)
@@ -53,8 +53,8 @@ class COGAggregatorGDAL:
         self.tile_keys = []
         self.tile_bounds = [] 
 
-        print(f"Building Keys for tile_size of {tile_size}")
-        print(f'Pixel Size: {(tile_size*3600)/(2**(self.initial_depth+1))}" or {tile_size/(2**(self.initial_depth+1))}°')
+        #print(f"Building Keys for tile_size of {tile_size}")
+        #print(f'Pixel Size: {(tile_size*3600)/(2**(self.initial_depth+1))}" or {tile_size/(2**(self.initial_depth+1))}°')
 
         for lon1 in range(-180, 180, tile_size):
             lon2 = lon1 + tile_size
@@ -73,7 +73,7 @@ class COGAggregatorGDAL:
         """
         Build a GDAL /vsis3/ URL to a COG tile.
         """
-        print(f"Building URL /vsis3/{self.bucket_name}/{key}")
+        #print(f"Building URL /vsis3/{self.bucket_name}/{key}")
         return f"/vsis3/{self.bucket_name}/{key}"
     
     def _open_tile(self, url: str):
@@ -130,9 +130,9 @@ class COGAggregatorGDAL:
 
             total += tile_pop
 
-            print(f"Opened COG: url: {url}, size: ({ds.RasterXSize}x{ds.RasterYSize}). Tile Population added: {tile_pop}")
-            print(f"    Open time: {t_open:.4f} sec")
-            print(f"    Process time: {t_proc:.4f} sec")
+            #print(f"Opened COG: url: {url}, size: ({ds.RasterXSize}x{ds.RasterYSize}). Tile Population added: {tile_pop}")
+            #print(f"    Open time: {t_open:.4f} sec")
+            #print(f"    Process time: {t_proc:.4f} sec")
 
         return total
     
@@ -323,7 +323,7 @@ class COGAggregatorGDAL:
 
             return total
 
-
+"""
 def test_polygons():
     agg = COGAggregatorGDAL(bucket_name = "population-cog20")
 
@@ -358,3 +358,5 @@ def test_polygons():
 if __name__ == "__main__":
     #test_GDAL_Cloudfare()
     test_polygons()
+"""
+#177362732032.dkr.ecr.ap-southeast-4.amazonaws.com/gdal-lambda
