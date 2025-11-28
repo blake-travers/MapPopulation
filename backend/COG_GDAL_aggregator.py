@@ -65,7 +65,7 @@ class COGAggregatorGDAL:
 
         for lon1 in range(-180, 180, tile_size):
             lon2 = lon1 + tile_size
-
+            #test
             for lat1 in range(-90, 90, tile_size):
                 lat2 = lat1 + tile_size
                 
