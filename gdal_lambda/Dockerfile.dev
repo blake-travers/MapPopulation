@@ -17,5 +17,5 @@ COPY lambda_COG_aggregator.py .
 
 ENTRYPOINT ["python3", "app.py"]
 
-# docker build -f Dockerfile.dev -t gdal-dev .
-# docker run --rm gdal-dev
+#docker build -f Dockerfile.dev -t gdal-dev .
+#docker run --rm gdal-dev
