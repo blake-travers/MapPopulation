@@ -4,3 +4,4 @@ pydantic
 numpy
 rasterio
 boto3
+gdal
