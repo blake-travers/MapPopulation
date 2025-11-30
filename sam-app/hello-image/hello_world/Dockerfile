@@ -1,11 +1,16 @@
 FROM ghcr.io/lambgeo/lambda-gdal:3.8-python3.11
 
-ENV GDAL_DATA=/opt/share/gdal
-ENV PROJ_LIB=/opt/share/proj
+ENV GDAL_DISABLE_READDIR_ON_OPEN=YES
+ENV CPL_VSIL_CURL_ALLOWED_EXTENSIONS=.tif,.tiff,.ovr
+ENV GDAL_NUM_THREADS=ALL_CPUS
+ENV CPL_LOG=/dev/null
 
-COPY app.py ./
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["app.lambda_handler"]
+COPY app.py ${LAMBDA_TASK_ROOT}
+
+
 
 #Delete Stack:
 

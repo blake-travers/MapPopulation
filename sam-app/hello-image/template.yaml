@@ -13,8 +13,13 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
+      MemorySize: 1024
       Architectures:
         - x86_64
+
+      Environment:
+        Variables:
+          AWS_LAMBDA_FUNCTION_HANDLER: app.lambda_handler
 
       Events:
         HelloWorld:
@@ -26,7 +31,7 @@ Resources:
     Metadata:
       Dockerfile: Dockerfile
       DockerContext: ./hello_world
-      DockerTag: python3.11-v1
+      DockerTag: python3.11v1
 
 Outputs:
   HelloWorldApi:
