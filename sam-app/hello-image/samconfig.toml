@@ -3,7 +3,7 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "sam-test"
+stack_name = "hello-image"
 
 [default.build.parameters]
 parallel = true
