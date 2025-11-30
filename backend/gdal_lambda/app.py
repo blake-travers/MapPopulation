@@ -15,47 +15,26 @@ def gdal_version():
     return result.strip()
 
 
+
 def lambda_handler(event, context):
-    try:
-        body = event.get("body")
-        if body is None:
-            raise ValueError("Missing request body")
+    """
+    AWS Lambda entrypoint.
+    This should be as thin as possible.
+    """
 
-        if isinstance(body, str):
-            body = json.loads(body)
-
-        polygon = body["polygon"]
-        max_depth = body.get("max_depth", 0)
-
-        agg = COGAggregatorGDAL(bucket_name="population-cog20")
-        population = agg.aggregate_polygon(
-            polygon_geojson=polygon,
-            max_depth=max_depth
-        )
-
+    polygon = event.get("polygon")
+    if polygon is None:
         return {
-            "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps({
-                "population": population
-            })
+            "statusCode": 400,
+            "body": "Missing polygon"
         }
 
-    except Exception as e:
-        return {
-            "statusCode": 500,
-            "headers": {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": json.dumps({
-                "error": str(e)
-            })
-        }
+    result = aggregate_polygon(polygon)
 
+    return {
+        "statusCode": 200,
+        "body": result
+    }
 def run_polygon_tests():
     agg = COGAggregatorGDAL(bucket_name="population-cog20")
 
@@ -86,10 +65,3 @@ def run_polygon_tests():
             print(f"  ERROR: {e}\n")
 
     print("--- All tests completed ---")
-
-
-if __name__ == "__main__":
-    #LOCAL DEBUG MODE
-    print("Running in LOCAL debug mode")
-    print("GDAL:", gdal_version())
-    run_polygon_tests()
