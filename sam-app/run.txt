@@ -1,0 +1,27 @@
+Build & Deploy zip-based docker file:
+
+1. Rebuild Docker Image (cd sam-app)
+
+    docker build -t gdal-zip-builder -f build/Dockerfile .          (Returns 30 lines if unchanged, 1000+ if changed)
+
+2. Extract package.zip
+
+    docker create --name gdal_tmp gdal-zip-builder                  (Returns 1 line)
+    docker cp gdal_tmp:/tmp/package.zip dist/package.zip            (Returns 1 line)
+    docker rm gdal_tmp                                              (Returns 1 line)
+
+1 2. Together:
+
+    docker build -t gdal-zip-builder -f build/Dockerfile . \
+    && docker create --name gdal_tmp gdal-zip-builder \
+    && docker cp gdal_tmp:/tmp/package.zip dist/package.zip \
+    && docker rm gdal_tmp
+
+3. Checks & tests
+
+    ls -lh dist/package.zip
+    sam local invoke
+
+4. Deploy to Lambda
+
+    sam deploy

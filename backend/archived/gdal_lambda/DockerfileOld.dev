@@ -1,0 +1,20 @@
+# ---- Stage 1: GDAL binaries ----
+FROM ghcr.io/lambgeo/lambda-gdal:3.8-python3.11 AS gdal
+
+# ---- Stage 2: REAL Lambda runtime ----
+FROM public.ecr.aws/lambda/python:3.11
+
+# Copy GDAL shared libraries
+COPY --from=gdal /usr/local /usr/local
+
+# Install python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy app
+COPY app.py population_aggregator.py ./
+
+ENTRYPOINT ["python3", "app.py"]
+
+#docker build -f Dockerfile.dev -t gdal-dev .
+#docker run --rm gdal-dev

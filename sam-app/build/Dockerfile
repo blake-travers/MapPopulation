@@ -23,8 +23,8 @@ RUN pip install --no-cache-dir \
     GDAL==$(gdal-config --version) \
     -t ${PACKAGE_PREFIX}
 
-# Copy runtime code
-COPY app/app.py ${PACKAGE_PREFIX}/app.py
+# Copy all runtime code
+COPY app/ ${PACKAGE_PREFIX}/app/
 
 # ---- Create ZIP package ----
 # 1. Python code + deps

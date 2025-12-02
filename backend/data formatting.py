@@ -19,6 +19,7 @@ def format_data():
     output_dir = "cog_tiles"
     os.makedirs(output_dir, exist_ok=True)
 
+    #Purpose of scales is to increase number of decimal places supported for specific overview sizes (int32 is restrictive)
     scales = [1000, 1000, 1000,
             100, 100, 100, 100, 100,
             10, 10, 10, 10, 10,
