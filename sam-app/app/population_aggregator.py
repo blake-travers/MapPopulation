@@ -194,7 +194,7 @@ class COGAggregatorGDAL:
 
         band_full = ds.GetRasterBand(1)
         full_gt = ds.GetGeoTransform()
-        
+
         if self.max_depth != band_full.GetOverviewCount():
             print(self.max_depth)
             raise RuntimeError(f"Maximum Depth is not equal to total number of Overviews")
@@ -275,7 +275,7 @@ class COGAggregatorGDAL:
 
         tile_population = 0.0
         for child_bbox in quadrants:
-            tile_population += self._process_quadtree_node(ds=ds, bbox=child_bbox, depth=0)
+            tile_population += self._process_quadtree_node(ds=ds, bbox=child_bbox, depth=1)
 
         return tile_population
     
@@ -290,6 +290,7 @@ class COGAggregatorGDAL:
         """
         total = 0.0
         xmin, ymin, xmax, ymax = bbox
+        """
 
         #Initial Check to ensure
         if (
@@ -297,6 +298,7 @@ class COGAggregatorGDAL:
             ymax < self.pymin or ymin > self.pymax
         ):
             return 0.0
+        """
 
         #Convert bounding box into a Shapley polygon
         tile_bounds = Polygon([
@@ -352,39 +354,10 @@ def test_polygons():
     example_polygons = [
         #("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, 14),
         #("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}, 11),
-        #("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, 12),
+        ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, 12),
         #("Huge region (EU + Middle East) (depth=13)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, 14),
         #("Huge region (EU + Middle East) (depth=10)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, 11),
         #("Huge region (EU + Middle East) (depth=8)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, 9),
-        (
-    "Australia (coarse ~20 point polygon)",
-    {
-        "type": "Polygon",
-        "coordinates": [[
-            [112.0, -11.0],   # NW shelf
-            [114.0, -14.0],
-            [118.0, -16.0],
-            [123.0, -16.5],
-            [129.0, -14.5],   # Top End
-            [135.0, -14.0],
-            [141.0, -16.0],
-            [146.0, -18.5],   # QLD coast
-            [153.0, -27.5],   # SE QLD
-            [151.0, -31.5],
-            [148.0, -35.5],   # NSW
-            [145.0, -38.5],   # VIC
-            [140.0, -39.0],
-            [134.0, -38.0],   # SA
-            [129.0, -35.5],
-            [124.0, -33.0],
-            [120.0, -29.0],
-            [116.0, -23.0],   # WA coast
-            [113.5, -17.0],
-            [112.0, -11.0]    # close
-        ]]
-    },
-    9
-)
     ]
 
     print("\n--- Running COG polygon tests ---\n")
