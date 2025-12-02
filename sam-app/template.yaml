@@ -6,7 +6,7 @@ Description: >
 Globals:
   Function:
     Runtime: python3.11
-    Timeout: 15
+    Timeout: 30
     MemorySize: 1024
     Architectures:
       - x86_64

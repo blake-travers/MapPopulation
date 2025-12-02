@@ -1,7 +1,7 @@
 from osgeo import gdal
 from typing import Dict, List
 from shapely.geometry import shape, box, Polygon
-from shapely.prepared import prep
+from shapely.ops import transform
 import numpy as np
 import time
 import os
@@ -85,23 +85,48 @@ class COGAggregatorGDAL:
             raise RuntimeError(f"GDAL could not open COG: {url}\n{err}")
         return ds
 
-    def aggregate_polygon(self, polygon_geojson: Dict, custom_max_depth = 14) -> float:
+    def calculate_depth(self, angular_span: float, speed: str) -> int:
+        """
+        angular_span: maximum lon/lat extent in degrees
+        speed: 'fast', 'exact'
+        """
+
+        FAST_DEPTH = [(90.0, 5), (40.0, 6), (16.0, 7), (7.5, 8), (3.0, 9), (1.5, 10), (0.75, 11), (0.375, 12), (0.2, 13), (0.125, 14)]
+        EXACT_DEPTH = [(90, 8), (45, 9), (24, 10), (12, 11), (6, 12), (3, 13), (1, 14)]
+
+
+        if speed == "fast":
+            for min_span, depth in FAST_DEPTH:
+                if angular_span >= min_span:
+                    return depth
+        if speed == "exact":
+            for min_span, depth in EXACT_DEPTH:
+                if angular_span >= min_span:
+                    return depth
+
+        # safe fallback
+        return 9
+
+
+
+
+    def aggregate_polygon(self, polygon_geojson: Dict, speed: str = "fast") -> float:
         """
         Finds the population inside a specific polygon
         """
-        self.custom_max_depth = custom_max_depth
+    
+        total = 0.0
+
+        self.polygon = shape(polygon_geojson)
+        pxmin, pymin, pxmax, pymax = self.polygon.bounds
+        
+        angular_span = max(pxmax-pxmin, pymax-pxmin)
+        print(angular_span)
+
+        self.custom_max_depth = self.calculate_depth(angular_span, speed)
+
         if self.custom_max_depth > self.max_depth:
             raise RuntimeError(f"Custom Max Depth cannot exceed Max Depth")
-    
-        self.polygon = shape(polygon_geojson)
-
-        #Cache shapely polygon
-        self.prepared_polygon = prep(self.polygon)
-        self.pxmin, self.pymin, self.pxmax, self.pymax = self.polygon.bounds
-        self.poly_area = self.polygon.area
-
-        total = 0.0
-        pxmin, pymin, pxmax, pymax = self.polygon.bounds
  
         #Determine if Tile intersects with rectangular representation of polygon at all
         candidate_tiles = []
@@ -132,7 +157,7 @@ class COGAggregatorGDAL:
             t1 = time.time()
 
             tile_bbox = (lon1, lat1, lon2, lat2)
-            tile_pop = self._process_single_tile(ds, tile_bbox)
+            tile_pop = self._process_quadtree_node(ds=ds, bbox=tile_bbox, depth=0)
 
             t_proc = time.time() - t1
 
@@ -253,31 +278,6 @@ class COGAggregatorGDAL:
 
             return np.array(arr, dtype=np.float32)
         
-    def _process_single_tile(self, ds, tile_bbox) -> float:
-        """
-        Process a single tile using quadtrees. Starts by dividing tile into four parts representing the coarsest overview
-
-        tile_bbox: (xmin, ymin, xmax, ymax) of the whole tile in geo coords.
-        """
-
-        xmin, ymin, xmax, ymax = tile_bbox
-
-        # Split into 4 quadrants (SW, SE, NW, NE)
-        mid_x = (xmin + xmax) / 2.0
-        mid_y = (ymin + ymax) / 2.0
-
-        quadrants = [
-            (xmin, ymin, mid_x, mid_y),  # SW
-            (mid_x, ymin, xmax, mid_y),  # SE
-            (xmin, mid_y, mid_x, ymax),  # NW
-            (mid_x, mid_y, xmax, ymax),  # NE
-        ]
-
-        tile_population = 0.0
-        for child_bbox in quadrants:
-            tile_population += self._process_quadtree_node(ds=ds, bbox=child_bbox, depth=1)
-
-        return tile_population
     
     def _process_quadtree_node(self, ds, bbox, depth: int) -> float:
         """
@@ -290,15 +290,6 @@ class COGAggregatorGDAL:
         """
         total = 0.0
         xmin, ymin, xmax, ymax = bbox
-        """
-
-        #Initial Check to ensure
-        if (
-            xmax < self.pxmin or xmin > self.pxmax or
-            ymax < self.pymin or ymin > self.pymax
-        ):
-            return 0.0
-        """
 
         #Convert bounding box into a Shapley polygon
         tile_bounds = Polygon([
@@ -309,11 +300,11 @@ class COGAggregatorGDAL:
         ])
 
         #1. If this node does not intersect the shape
-        if not self.prepared_polygon.intersects(tile_bounds):
+        if not self.polygon.intersects(tile_bounds):
             return 0.0
 
         #2. If this node is entirely inside the shape
-        elif self.prepared_polygon.contains(tile_bounds):
+        elif self.polygon.contains(tile_bounds):
 
             data = self._read_data_gdal(ds, depth, bbox)
             total = float(np.sum(data, where=(data > 0)))
@@ -352,12 +343,12 @@ def test_polygons():
     agg = COGAggregatorGDAL(bucket_name = "population-cog20")
 
     example_polygons = [
-        #("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, 14),
-        #("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}, 11),
-        ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, 12),
-        #("Huge region (EU + Middle East) (depth=13)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, 14),
-        #("Huge region (EU + Middle East) (depth=10)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, 11),
-        #("Huge region (EU + Middle East) (depth=8)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, 9),
+        ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, "fast"),
+        ("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}, "fast"),
+        ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "fast"),
+        ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "exact"),
+        ("Huge region (EU + Middle East) (depth=13)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "fast"),
+        ("Huge region (EU + Middle East) (depth=10)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "exact")
     ]
 
     print("\n--- Running COG polygon tests ---\n")
@@ -369,7 +360,7 @@ def test_polygons():
         
         start = time.time()
         try:
-            pop = agg.aggregate_polygon(polygon_geojson=polygon, custom_max_depth=depth)
+            pop = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
 
             dt = time.time() - start
 
