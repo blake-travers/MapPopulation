@@ -5,7 +5,7 @@ from app.population_aggregator import test_polygons
 def lambda_handler(event, context):
 
     print(f"GDAL Version: {gdal.VersionInfo()}")
-
+    
     print("Running polygon population tests...")
     results = test_polygons()
     print("Finished running polygon tests.\n")

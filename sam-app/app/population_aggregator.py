@@ -89,19 +89,24 @@ class COGAggregatorGDAL:
         """
         angular_span: maximum lon/lat extent in degrees
         speed: 'fast', 'exact'
+
+        Depth is used as an indirect governer to ensure number of process_tile_node runs stays reasonable.
+        Breadth (which is the true complexity) cannot be calcualted prior to calculation.
         """
 
-        FAST_DEPTH = [(90.0, 5), (40.0, 6), (16.0, 7), (7.5, 8), (3.0, 9), (1.5, 10), (0.75, 11), (0.375, 12), (0.2, 13), (0.125, 14)]
-        EXACT_DEPTH = [(90, 8), (45, 9), (24, 10), (12, 11), (6, 12), (3, 13), (1, 14)]
+        FAST_DEPTH = [(90.0, 5), (40.0, 6), (16.0, 7), (7.5, 8), (3.0, 9), (1.5, 10), (0.75, 11), (0.375, 12), (0.2, 13), (0.0, 14)]
+        EXACT_DEPTH = [(90.0, 10), (30.0, 11), (8.0, 12), (1.0, 13), (0.0, 14)]
 
 
         if speed == "fast":
             for min_span, depth in FAST_DEPTH:
                 if angular_span >= min_span:
+                    print(f"Fast Depth: {depth}. Fast Resolution: {0.10986*(2**(self.max_depth-depth))}' / {6.59*(2**(self.max_depth-depth))}\"")
                     return depth
         if speed == "exact":
             for min_span, depth in EXACT_DEPTH:
                 if angular_span >= min_span:
+                    print(f"Exact Depth: {depth}. Exact Resolution: {0.1098*(2**(self.max_depth-depth))}' / {6.59*(2**(self.max_depth-depth))}\"")
                     return depth
 
         # safe fallback
@@ -116,12 +121,14 @@ class COGAggregatorGDAL:
         """
     
         total = 0.0
+        self.breadth = 0
+        self.num_reads = 0
 
         self.polygon = shape(polygon_geojson)
         pxmin, pymin, pxmax, pymax = self.polygon.bounds
         
         angular_span = max(pxmax-pxmin, pymax-pxmin)
-        print(angular_span)
+        print(f"Area (Square Degrees): {angular_span}")
 
         self.custom_max_depth = self.calculate_depth(angular_span, speed)
 
@@ -167,7 +174,7 @@ class COGAggregatorGDAL:
             print(f"    Open time: {t_open:.4f} sec")
             print(f"    Process time: {t_proc:.4f} sec")
 
-        return total
+        return total, self.breadth, self.num_reads
     
     def _world_to_pixel(self, gt, x, y):
         """
@@ -216,7 +223,7 @@ class COGAggregatorGDAL:
         depth of 0  -> overview index 13
         
         """
-
+        self.num_reads += 1
         band_full = ds.GetRasterBand(1)
         full_gt = ds.GetGeoTransform()
 
@@ -289,6 +296,7 @@ class COGAggregatorGDAL:
             - is increased as we go deeper.
         """
         total = 0.0
+        self.breadth += 1
         xmin, ymin, xmax, ymax = bbox
 
         #Convert bounding box into a Shapley polygon
@@ -320,9 +328,16 @@ class COGAggregatorGDAL:
             proportion = intersection_area / tile_bounds.area if tile_bounds.area > 0 else 0.0
 
             return total * proportion
-        
+            
         else:
-            #3.2 If we've not yet reached maximum depth, recusrively go one resolution deeper
+            if self.custom_max_depth - depth >= 3:
+                #3.2 We want to first check to ensure that the tile is not completely empty (ocean etc), which would defeat the purpose of recursion.
+                #However, we only want to do this if our remaining depth is large - thus preventing at this moment a minimum of 4^3 = 64 unnesecary calls
+                data = self._read_data_gdal(ds, depth, bbox)
+                if np.sum(data) == 0:
+                    return 0.0
+            #3.3 And if all these checks fails - it means we are partially inside a tile and thus we need to recursively go one level deeper
+
             mid_x = (xmin + xmax) / 2.0
             mid_y = (ymin + ymax) / 2.0
 
@@ -344,11 +359,12 @@ def test_polygons():
 
     example_polygons = [
         ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, "fast"),
+        ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, "fast"),
         ("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}, "fast"),
         ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "fast"),
         ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "exact"),
-        ("Huge region (EU + Middle East) (depth=13)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "fast"),
-        ("Huge region (EU + Middle East) (depth=10)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "exact")
+        ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "fast"),
+        ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "exact")
     ]
 
     print("\n--- Running COG polygon tests ---\n")
@@ -360,11 +376,13 @@ def test_polygons():
         
         start = time.time()
         try:
-            pop = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
+            pop, breadth, reads = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
 
             dt = time.time() - start
 
             print(f"  Population = {pop:,.2f}")
+            print(f"  Breadth = {breadth}")
+            print(f"  Number of Reads: {reads}")
             print(f"  Time taken = {dt:.4f} seconds\n")
 
 
