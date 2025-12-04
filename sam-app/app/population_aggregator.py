@@ -340,13 +340,16 @@ class COGAggregatorGDAL:
             return total * proportion
             
         else:
+            """ Cut for now.. need raster populated vs non populated for easier reads
             if self.custom_max_depth - depth >= 3:
                 #3.2 We want to first check to ensure that the tile is not completely empty (ocean etc), which would defeat the purpose of recursion.
                 #However, we only want to do this if our remaining depth is large - thus preventing at this moment a minimum of 4^3 = 64 unnesecary calls
                 data = self._read_data_gdal(ds, depth, bbox)
                 if np.sum(data) == 0:
                     return 0.0
-            #3.3 And if all these checks fails - it means we are partially inside a tile and thus we need to recursively go one level deeper
+            """
+
+            #4 And if all these checks fails - it means we are partially inside a tile and thus we need to recursively go one level deeper
 
             mid_x = (xmin + xmax) / 2.0
             mid_y = (ymin + ymax) / 2.0

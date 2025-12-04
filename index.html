@@ -82,11 +82,14 @@
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                width:42px;
-                height:96px;
+                width:48px;
+                height:196px;
                 font-size:16px;
                 line-height:1;
+
             }
+
+            
 
             .sidebar-inner
             {
@@ -137,6 +140,88 @@
                 background-color: var(--color-highlight);
             }
 
+            .shape-item
+            {
+                margin-bottom: 8px;
+                background: #ffffff;
+                border-radius: 4px;
+                overflow: hidden;
+                cursor: pointer;
+                transition: background-color 0.15s ease;
+            }
+
+            .shape-header
+            {
+                padding: 8px 10px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: rgba(0, 0, 0, 0.05);
+                transition: background-color 0.15s ease;
+            }
+
+            .shape-color
+            {
+                width: 12px;
+                height: 12px;
+                border-radius: 2px;
+            }
+
+            .shape-details
+            {
+                padding: 0 10px;
+                font-size: 14px;
+                overflow: hidden;
+
+                max-height: 0;
+                opacity: 0;
+                background: rgba(0, 0, 0, 0.00);
+
+                transition:
+                    background-color 0.15s ease,
+                    max-height 0.15s ease,
+                    opacity 0.1s ease,
+                    padding 0.15s ease;
+            }
+
+            .shape-item.highlight
+            {
+                background: color-mix(in srgb, var(--shape-color) 20%, white);
+            }
+
+            .shape-item.highlight .shape-details
+            {
+                background: color-mix(in srgb, var(--shape-color) 12%, white);
+            }
+
+            .shape-item.open .shape-details
+            {
+                padding: 8px 10px;
+
+                max-height: 200px;
+                opacity: 1;
+            }
+
+            .shape-title
+            {
+                flex: 1;
+            }
+
+            .shape-arrow
+            {
+                font-size: 12px;
+                transition: transform 0.15s;
+            }
+
+            .shape-item.open .shape-arrow
+            {
+                transform: rotate(180deg); /* ▼ → ▲ */
+            }
+
+            .leaflet-interactive {
+                transition: fill-opacity 0.15s ease;
+            }
 
         </style>
 
@@ -185,8 +270,23 @@
             <div id="sidebar" aria-hidden="true">
                 <div class="sidebar-inner">
                     <h2>Population by Shape on a Map</h2>
-                    <p>Use the tools on the left to draw a shape, to find out the population of inside that shape.</p>
-                        <div id="infoArea">No shapes yet.</div>
+                    <p>Use the tools on the left to draw a shape & find the population of those living inside.</p>
+                    <p>Calculation Mode: </p>
+                    <div id="speedcontroller" style="display:flex;">
+                        
+                        <label style="display:block; cursor:pointer;">
+                            <input type="radio" name="speedMode" value="fast" checked>
+                            Fast
+                        </label>
+
+                        <label style="display:block; cursor:pointer;">
+                            <input type="radio" name="speedMode" value="exact">
+                            Exact
+                        </label>
+                    </div>
+                    <br><br>
+
+                    <div id="shapeList"></div>
                 </div>
             </div>
         </div>
@@ -199,7 +299,35 @@
             let sidebarOpen = true;
             toggleBtn.textContent = '▶';
             const SIDEBAR_WIDTH = '30%';
-            
+
+            const shapes = new Map();
+            let shapeCounter = 1;
+
+            const COLOR_PALETTE =
+            [
+                "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+                "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab",
+
+                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+                "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+
+                "#6a3d9a", "#b15928", "#33a02c", "#fb9a99", "#e31a1c",
+                "#1f78b4", "#a6cee3", "#b2df8a", "#cab2d6", "#ffff99",
+
+                "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3",
+                "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd",
+
+                "#ccebc5", "#ffed6f"
+            ];
+
+            let nextColorIndex = 0;
+
+            function getNextColor()
+            {
+                const c = COLOR_PALETTE[nextColorIndex % COLOR_PALETTE.length];
+                nextColorIndex++;
+                return c;
+            }
 
             // Initialize map
             const map = L.map('map').setView([-37.8136, 144.9631], 11);
@@ -263,58 +391,93 @@
             );
             map.addControl(drawControl);
 
-            //Functionality to Call AWS Lambda Backend
-            map.on(L.Draw.Event.CREATED, async function (event)
-            {
-                const layer = event.layer;
 
-                drawnItems.clearLayers();
+            //Functionality to Call AWS Lambda Backend
+            map.on(L.Draw.Event.CREATED, async function (event) {
+                const layer = event.layer;
+                const id = shapeCounter++;
+                const color = getNextColor();
+
+                layer.setStyle({
+                    color,
+                    weight: 4,
+                    fillOpacity: 0.2
+                });
+
                 drawnItems.addLayer(layer);
 
-                const geojson = layer.toGeoJSON();
-                const infoArea = document.getElementById("infoArea");
-
-                infoArea.innerHTML = "<b>Calculating population...</b>";
-
-                try
-                {
+                try {
                     const response = await fetch(
                         "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
                         {
                             method: "POST",
-                            headers: {
-                                "Content-Type": "application/json"
-                            },
+                            headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                                polygon: geojson.geometry,
-                                speed: "fast"
+                                polygon: layer.toGeoJSON().geometry,
+                                speed: document.querySelector(
+                                    'input[name="speedMode"]:checked'
+                                ).value
                             })
                         }
                     );
 
-                    if (!response.ok) {
-                        const text = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${text}`);
-                    }
-
                     const data = await response.json();
 
-                    infoArea.innerHTML = `
-                        <h3>Population</h3>
-                        <p><b>Total:</b> ${Math.round(data.population).toLocaleString()}</p>
-                        <p><b>Mode:</b> ${data.speed}</p>
-                        <p><b>Time:</b> ${data.time} ms</p>
+                    // --- Create sidebar dropdown ---
+                    const item = document.createElement("div");
+                    item.className = "shape-item";
+
+                    item.innerHTML = `
+                        <div class="shape-header">
+                            <div class="shape-color" style="background:${color}"></div>
+                            <span class="shape-title">Shape ${id}</span>
+                            <span class="shape-arrow">▼</span>
+                        </div>
+                        <div class="shape-details">
+                            <p><b>Population:</b> ${Math.round(data.population).toLocaleString()}</p>
+                            <p><b>Mode:</b> ${data.speed}</p>
+                            <p><b>Time:</b> ${data.time} ms</p>
+                        </div>
                     `;
-                }
-                catch (err)
-                {
+                    item.style.setProperty("--shape-color", color);
+
+                    document.getElementById("shapeList").appendChild(item);
+
+                    // --- Store shape ---
+                    shapes.set(id, { layer, item });
+
+                    // --- Hover sync: shape → sidebar ---
+                    layer.on("mouseover", () => {
+                        layer.setStyle({fillOpacity: 0.4 });
+                        item.classList.add("highlight");
+                    });
+
+                    layer.on("mouseout", () => {
+                        layer.setStyle({fillOpacity: 0.2 });
+                        item.classList.remove("highlight");
+                    });
+
+                    // --- Hover sync: sidebar → shape ---
+                    item.addEventListener("mouseover", () => {
+                        layer.setStyle({ fillOpacity: 0.4 });
+                        item.classList.add("highlight");
+                    });
+
+                    item.addEventListener("mouseout", () => {
+                        layer.setStyle({ fillOpacity: 0.2 });
+                        item.classList.remove("highlight");
+                    });
+
+                    // --- Toggle dropdown ---
+                    item.querySelector(".shape-header").addEventListener("click", () => {
+                        item.classList.toggle("open");
+                    });
+
+                } catch (err) {
                     console.error("Population error:", err);
-                    infoArea.innerHTML = `
-                        <b style="color:red">Error calculating population</b><br/>
-                        <pre>${err.message}</pre>
-                    `;
                 }
             });
+
 
         
             sidebar.style.transition = 'none';
