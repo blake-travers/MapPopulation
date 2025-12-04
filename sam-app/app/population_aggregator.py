@@ -31,10 +31,10 @@ class COGAggregatorGDAL:
         self.tile_size = tile_size
         self.scales = None
 
-        #print("Class Initialisation")
-        #print(f"  Bucket: {self.bucket_name}")
-        #print(f"  Region: {self.region}")
-        #print(f"  Default depth: {self.initial_depth}")
+        print("Class Initialisation")
+        print(f"|  Bucket: {self.bucket_name}")
+        print(f"|  Region: {self.region}")
+        print(f"|  Max depth: {self.max_depth}")
 
         # Precompute tile bounds + keys
         self._generate_global_tile_keys(tile_size=self.tile_size)
@@ -85,40 +85,47 @@ class COGAggregatorGDAL:
             raise RuntimeError(f"GDAL could not open COG: {url}\n{err}")
         return ds
 
-    def calculate_depth(self, angular_span: float, speed: str) -> int:
+    def _calculate_depth(self, speed: str) -> int:
         """
         angular_span: maximum lon/lat extent in degrees
         speed: 'fast', 'exact'
 
         Depth is used as an indirect governer to ensure number of process_tile_node runs stays reasonable.
         Breadth (which is the true complexity) cannot be calcualted prior to calculation.
+
+        Optional Change: Move to Breadth-first-search and use a time-based cutoff. Downside is that read_gdal is required in every node though
         """
 
-        FAST_DEPTH = [(90.0, 5), (40.0, 6), (16.0, 7), (7.5, 8), (3.0, 9), (1.5, 10), (0.75, 11), (0.375, 12), (0.2, 13), (0.0, 14)]
-        EXACT_DEPTH = [(90.0, 10), (30.0, 11), (8.0, 12), (1.0, 13), (0.0, 14)]
+        pxmin, pymin, pxmax, pymax = self.polygon.bounds
 
+        angular_span = max(pxmax - pxmin, pymax - pymin)
+        perimeter = self.polygon.length
 
-        if speed == "fast":
-            for min_span, depth in FAST_DEPTH:
-                if angular_span >= min_span:
-                    print(f"Fast Depth: {depth}. Fast Resolution: {0.10986*(2**(self.max_depth-depth))}' / {6.59*(2**(self.max_depth-depth))}\"")
-                    return depth
-        if speed == "exact":
-            for min_span, depth in EXACT_DEPTH:
-                if angular_span >= min_span:
-                    print(f"Exact Depth: {depth}. Exact Resolution: {0.1098*(2**(self.max_depth-depth))}' / {6.59*(2**(self.max_depth-depth))}\"")
-                    return depth
+        BASE_SPAN = 90.0
+        SHAPE_CONSTANT = 0.5
+        FAST_INITIAL_DEPTH = 5
+        EXACT_INITIAL_DEPTH = 9
 
-        # safe fallback
-        return 9
+        extra_perimeter = max(0, perimeter - 4 * angular_span) #Define how "Irregular" this shape is - compared to a perfect rectangle
+        print(f"|  Angular Span (square degrees): {angular_span}. Perimeter (degrees): {perimeter}. Extre perimeter (degrees): {extra_perimeter}")
 
+        complexity = angular_span + SHAPE_CONSTANT * extra_perimeter #use this irregularity to infleucne the depth metric
+        complexity = math.log(complexity / BASE_SPAN, 4) #Log4 because quadtrees is 4^N
 
+        base_depth = FAST_INITIAL_DEPTH if speed == "fast" else EXACT_INITIAL_DEPTH #Choose which depth to use
+        depth = int(round(base_depth - complexity))
+        depth = max(3, min(self.max_depth, depth)) #Clamp
 
+        print(f"|  Complexity = {complexity}. Chosen Depth = {depth}. ")
+
+        return depth
 
     def aggregate_polygon(self, polygon_geojson: Dict, speed: str = "fast") -> float:
         """
         Finds the population inside a specific polygon
         """
+
+        start_time = time.time()
     
         total = 0.0
         self.breadth = 0
@@ -126,11 +133,8 @@ class COGAggregatorGDAL:
 
         self.polygon = shape(polygon_geojson)
         pxmin, pymin, pxmax, pymax = self.polygon.bounds
-        
-        angular_span = max(pxmax-pxmin, pymax-pxmin)
-        print(f"Area (Square Degrees): {angular_span}")
 
-        self.custom_max_depth = self.calculate_depth(angular_span, speed)
+        self.custom_max_depth = self._calculate_depth(speed)
 
         if self.custom_max_depth > self.max_depth:
             raise RuntimeError(f"Custom Max Depth cannot exceed Max Depth")
@@ -151,6 +155,7 @@ class COGAggregatorGDAL:
                 candidate_tiles2.append(((lon1, lat1, lon2, lat2), key))
 
         #For all other tiles, start running recursive algorithm
+        start_time = time.time()
         for (lon1, lat1, lon2, lat2), key in candidate_tiles2:
             t0 = time.time()
 
@@ -170,9 +175,14 @@ class COGAggregatorGDAL:
 
             total += tile_pop
 
-            print(f"Opened COG: url: {url}, size: ({ds.RasterXSize}x{ds.RasterYSize}). Tile Population added: {tile_pop}")
-            print(f"    Open time: {t_open:.4f} sec")
-            print(f"    Process time: {t_proc:.4f} sec")
+            print(f"|  Opened COG: url: {url}, size: ({ds.RasterXSize}x{ds.RasterYSize}). Tile Population added: {tile_pop}")
+            print(f"|    Open time: {int(t_open * 1000)} ms")
+            print(f"|    Process time: {int(t_proc * 1000)} ms")
+
+        print(f"|  Population = {total:,.2f}")
+        print(f"|  Breadth = {self.breadth}")
+        print(f"|  Number of Reads: {self.num_reads}")
+        print(f"|  Time taken = {int((time.time()-start_time) * 1000)} ms\n")
 
         return total, self.breadth, self.num_reads
     
@@ -379,11 +389,6 @@ def test_polygons():
             pop, breadth, reads = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
 
             dt = time.time() - start
-
-            print(f"  Population = {pop:,.2f}")
-            print(f"  Breadth = {breadth}")
-            print(f"  Number of Reads: {reads}")
-            print(f"  Time taken = {dt:.4f} seconds\n")
 
 
             results.append({

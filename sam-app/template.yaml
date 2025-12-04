@@ -32,7 +32,7 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /hello
-            Method: get
+            Method: post
 
       Policies:
         - S3ReadPolicy:
