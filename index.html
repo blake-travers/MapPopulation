@@ -156,7 +156,7 @@
                 border-radius: 4px;
                 overflow: hidden;
                 cursor: pointer;
-                transition: background-color 0.15s ease;
+                transition: background-color 0.1s ease;
             }
 
             .shape-header
@@ -167,7 +167,7 @@
                 align-items: center;
                 gap: 8px;
                 background: rgba(0, 0, 0, 0.05);
-                transition: background-color 0.15s ease;
+                transition: background-color 0.1s ease;
             }
 
             .shape-color
@@ -179,6 +179,7 @@
 
             .shape-details
             {
+                position: relative;
                 padding: 0 10px;
                 font-size: 14px;
                 overflow: hidden;
@@ -188,12 +189,107 @@
                 background: rgba(0, 0, 0, 0.00);
 
                 transition:
-                    background-color 0.15s ease,
-                    max-height 0.15s ease,
+                    background-color 0.1s ease,
+                    max-height 0.1s ease,
                     opacity 0.1s ease,
-                    padding 0.15s ease;
+                    padding 0.1s ease;
             }
 
+            .shape-delete
+            {
+                position: absolute;
+                top: 6px;
+                right: 8px;
+
+                border: none;
+                background: none;
+
+                font-size: 14px;
+                line-height: 1;
+
+                cursor: pointer;
+
+                opacity: 0.35;
+                color: #b00000;
+
+                transition: opacity 0.12s ease, color 0.12s ease;
+            }
+
+            .shape-delete:hover
+            {
+                opacity: 0.85;
+            }
+
+
+            .delete-wrapper
+            {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            }
+
+            .delete-confirm
+            {
+                position: absolute;
+                top: -1.5px;
+                right: 32px;
+
+                display: flex;
+                align-items: center;
+                gap: 6px;
+
+                background: #fff;
+                border-radius: 4px;
+                padding: 4px 6px;
+
+                font-size: 14px;
+                color: #333;
+
+                box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+
+                opacity: 0;
+                pointer-events: none;
+
+                transition: opacity 0.12s ease, transform 0.12s ease;
+            }
+
+            .delete-confirm button
+            {
+                border: none;
+                background: none;
+                cursor: pointer;
+                font-size: 14px;
+                padding: 2px 4px;
+                transition: opacity 0.12s ease, color 0.12s ease;
+            }
+
+            .delete-confirm .confirm-yes
+            {
+                color: #b00000;
+                opacity: 60%;
+            }
+
+            .delete-confirm .confirm-no
+            {
+                color: rgb(4, 128, 0);
+                opacity: 60%;
+            }
+
+            .delete-confirm .confirm-yes:hover
+            {
+                opacity: 100%;
+            }
+
+            .delete-confirm .confirm-no:hover
+            {
+                opacity: 100%;
+            }
+
+            .delete-confirm.show
+            {
+                opacity: 1;
+                pointer-events: auto;
+            }
             .shape-item.highlight
             {
                 background: color-mix(in srgb, var(--shape-color) 20%, white);
@@ -219,8 +315,8 @@
 
             .shape-arrow
             {
-                font-size: 12px;
-                transition: transform 0.15s;
+                font-size: 16px;
+                transition: transform 0.1s;
             }
 
             .shape-item.open .shape-arrow
@@ -229,7 +325,7 @@
             }
 
             .leaflet-interactive {
-                transition: fill-opacity 0.15s ease;
+                transition: fill-opacity 0.1s ease;
             }
 
         </style>
@@ -383,10 +479,7 @@
             const drawControl = new L.Control.Draw
             (
                 {
-                    edit:
-                    {
-                        featureGroup: drawnItems
-                    },
+                    edit: false,
                     draw:
                     {
                         polygon: true,  
@@ -434,7 +527,7 @@
 
                     // --- Create sidebar dropdown ---
                     const item = document.createElement("div");
-                    item.className = "shape-item";
+                    item.className = "shape-item open";
 
                     item.innerHTML = `
                         <div class="shape-header">
@@ -442,13 +535,53 @@
                             <span class="shape-title">Shape ${id}</span>
                             <span class="shape-arrow">▼</span>
                         </div>
+
                         <div class="shape-details">
+                            <div class="delete-wrapper">
+                                <button class="shape-delete" title="Delete shape">✕</button>
+
+                                <div class="delete-confirm">
+                                    <span>Delete?</span>
+                                    <button class="confirm-yes">✓</button>
+                                    <button class="confirm-no">✕</button>
+                                </div>
+                            </div>
+
                             <p><b>Population:</b> ${Math.round(data.population).toLocaleString()}</p>
                             <p><b>Mode:</b> ${data.speed}</p>
                             <p><b>Time:</b> ${data.time} ms</p>
                         </div>
                     `;
                     item.style.setProperty("--shape-color", color);
+
+                    const deleteWrapper = item.querySelector(".delete-wrapper");
+                    const deleteBtn = item.querySelector(".shape-delete");
+                    const confirmBox = item.querySelector(".delete-confirm");
+                    const confirmYes = item.querySelector(".confirm-yes");
+                    const confirmNo = item.querySelector(".confirm-no");
+
+                    deleteBtn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        confirmBox.classList.toggle("show");
+                    });
+
+                    confirmNo.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        confirmBox.classList.remove("show");
+                    });
+
+                    confirmYes.addEventListener("click", (e) => {
+                        e.stopPropagation();
+
+                        // remove polygon
+                        drawnItems.removeLayer(layer);
+
+                        // remove sidebar card
+                        item.remove();
+
+                        // clean state
+                        shapes.delete(id);
+                    });
 
                     document.getElementById("shapeList").appendChild(item);
 
