@@ -57,6 +57,7 @@
                 transition: width 0.2s ease, padding 0.2s ease;
                 box-sizing:border-box;
                 padding:0;
+                display: flex;
 
                 border-left: 2px solid var(--color-bg-border);
             }
@@ -93,8 +94,16 @@
 
             .sidebar-inner
             {
-                padding:15px;
-                box-sizing:border-box;
+                flex: 1 1 auto;
+                min-height: 0;
+
+                overflow-y: auto;
+                overflow-x: hidden;
+
+                padding: 15px;
+                padding-bottom: 60px;
+
+                box-sizing: border-box;
             }
 
             #searchResults
@@ -363,7 +372,7 @@
                 }
             );
 
-            Esri_WorldGrayCanvas.addTo(map)
+            CartoDB_VoyagerNoLabels.addTo(map)
             CartoDB_PositronOnlyLabels.addTo(map);
         
 
