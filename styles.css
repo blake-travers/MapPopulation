@@ -1,0 +1,300 @@
+:root
+{
+    --color-bg: #f7f7f7;
+    --color-bg-border: #54617e;
+    --color-highlight: #dddddd;
+}
+
+body, html, div, input, button, h1, h2, h3, p
+{
+    font-family: "Inter", sans-serif;
+}
+html,body
+{
+    height:100%;
+    margin:0;
+    overflow:hidden;
+}
+
+#container
+{
+    position:relative;
+    display:flex;
+    height:100%;
+    width:100%;
+}
+
+#map
+{
+    flex:1 1 auto;
+    height:100%;
+    transition: width 0.2s ease;
+    min-width: 0;
+}
+
+#sidebar
+{
+    width: 0%;
+    background: var(--color-bg);
+    height:100%;
+    overflow:hidden;
+    transition: width 0.2s ease, padding 0.2s ease;
+    box-sizing:border-box;
+    padding:0;
+    display: flex;
+
+    border-left: 2px solid var(--color-bg-border);
+}
+
+#sidebarButton
+{
+    position: absolute;
+    top: 50%;
+    right: 0%;
+    z-index: 3000;
+    background: var(--color-bg);
+
+    border-right: 4px solid var(--color-bg);
+    border-left: 2px solid var(--color-bg-border);
+    border-top: 2px solid var(--color-bg-border);
+    border-bottom: 2px solid var(--color-bg-border);
+
+    padding: 8px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: right 0.2s ease;
+    transform: translate(8%, -50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:48px;
+    height:196px;
+    font-size:16px;
+    line-height:1;
+
+}
+
+
+
+.sidebar-inner
+{
+    flex: 1 1 auto;
+    min-height: 0;
+    font-size: 14px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    padding: 15px;
+    padding-bottom: 60px;
+
+    box-sizing: border-box;
+}
+
+#searchResults
+{
+    font-family: "Inter", Arial, sans-serif;
+    font-size: inherit;
+}
+
+.search-result-item
+{
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    background: #f7f7f7;
+    transition: background 0.2s ease;
+}
+
+.search-result-item:hover
+{
+    background: #cdd6e9;
+}
+
+
+/* Zoom control container */
+.leaflet-control-zoom a
+{
+    transition: background 0.2s, transform 0.2s;
+}
+.leaflet-control-zoom a:hover
+{
+    background-color: var(--color-highlight);
+}
+
+/* Draw control container */
+.leaflet-draw .leaflet-bar a
+{
+    transition: background 0.2s, transform 0.2s;
+}
+.leaflet-draw .leaflet-bar a:hover
+{
+    background-color: var(--color-highlight);
+}
+
+.shape-item
+{
+    margin-bottom: 8px;
+    background: #ffffff;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background-color 0.1s ease;
+}
+
+.shape-header
+{
+    padding: 8px 10px;
+    font-weight: 500;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    transition: background-color 0.1s ease;
+}
+
+.shape-color
+{
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.shape-details
+{
+    position: relative;
+    padding: 0 10px;
+    font-size: 14px;
+    overflow: hidden;
+
+    max-height: 0;
+    opacity: 0;
+    background: rgba(0, 0, 0, 0.00);
+
+    transition:
+        background-color 0.1s ease,
+        max-height 0.1s ease,
+        opacity 0.1s ease,
+        padding 0.1s ease;
+}
+
+.shape-delete
+{
+    position: absolute;
+    top: 12px;
+    right: 10px;
+
+    border: none;
+    background: none;
+
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1;
+
+    cursor: pointer;
+
+    opacity: 0.8;
+    color: #000000;
+
+    transition: opacity 0.12s ease, color 0.12s ease, scale 0.12s ease;
+}
+
+.shape-delete:hover
+{
+    opacity: 1;
+    transform: scale(1.03);
+}
+
+
+.delete-confirm
+{
+    position: absolute;
+    top: 13.5px;
+    right: 48px;
+
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    background: #fff;
+    border-radius: 4px;
+    padding: 4px 6px;
+
+    font-size: 14px;
+    color: #333;
+
+    opacity: 0;
+    pointer-events: none;
+
+    transition: opacity 0.08s ease, transform 0.08s ease;
+    white-space: nowrap;
+}
+
+.delete-confirm button
+{
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    transition: opacity 0.1s ease, color 0.1s ease;
+}
+
+.delete-confirm .confirm-yes
+{
+    color: #b00000;
+    opacity: 60%;
+}
+
+.delete-confirm .confirm-yes:hover
+{
+    opacity: 100%;
+    transform: scale(1.1);
+}
+
+
+.delete-confirm.show
+{
+    opacity: 1;
+    pointer-events: auto;
+}
+.shape-item.highlight
+{
+    background: color-mix(in srgb, var(--shape-color) 20%, white);
+}
+
+.shape-item.highlight .shape-details
+{
+    background: color-mix(in srgb, var(--shape-color) 12%, white);
+}
+
+.shape-item.open .shape-details
+{
+    padding: 8px 10px;
+
+    max-height: 200px;
+    opacity: 1;
+}
+
+.shape-title
+{
+    flex: 1;
+}
+
+.shape-arrow
+{
+    font-size: 16px;
+    transition: transform 0.1s;
+}
+
+.shape-item.open .shape-arrow
+{
+    transform: rotate(180deg); /* ▼ → ▲ */
+}
+
+.leaflet-interactive {
+    transition: fill-opacity 0.1s ease;
+}
