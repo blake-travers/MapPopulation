@@ -6,147 +6,69 @@ import numpy as np
 import time
 import os
 import math
+#from pyproj import Geod
 
 class COGAggregatorGDAL:
-    def __init__(self, bucket_name: str = None, tile_size: int = 30, max_depth: int = 14):
+    def __init__(self):
         """
         GDAL-CLI based COG aggregator for AWS Lambda + S3.
         Authentication is handled automatically via IAM Role.
         """
 
-        # ---- AWS CONFIG ----
-        self.bucket_name = bucket_name or os.environ.get("COG_BUCKET_NAME")
         self.region = "s3.ap-southeast-4.amazonaws.com"
-        if not self.bucket_name:
-            raise RuntimeError("COG_BUCKET_NAME must be set")
-
         gdal.UseExceptions()
         gdal.SetConfigOption("GDAL_DISABLE_READDIR_ON_OPEN", "YES")
         gdal.SetConfigOption("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ".tif,.tiff,.ovr")
         gdal.SetConfigOption("AWS_REGION", "ap-southeast-4")
         gdal.SetConfigOption("AWS_S3_ENDPOINT",self.region)
 
-        # ---- CLASS CONFIG ----
-        self.max_depth = max_depth
-        self.tile_size = tile_size
-        self.scales = None
 
-        print("Class Initialisation")
-        print(f"|  Bucket: {self.bucket_name}")
-        print(f"|  Region: {self.region}")
-        print(f"|  Max depth: {self.max_depth}")
-
-        # Precompute tile bounds + keys
-        self._generate_global_tile_keys(tile_size=self.tile_size)
-
-
-    def _generate_global_tile_keys(self, tile_size: int) -> List[str]:
-        """
-        Generate all tile keys of the form:
-        tile_([lon_min,lon_max],[lat_min,lat_max]).tif
-
-        tile_size must divide 360 (lon) and 180 (lat), e.g. 5, 10, 30.
-        """
-
-        if 180 % tile_size != 0:
-            raise ValueError(f"Tile size {tile_size}° does not evenly divide the globe.")
-
-        self.tile_keys = []
-        self.tile_bounds = [] 
-
-        #print(f"Building Keys for tile_size of {tile_size}")
-        #print(f'Pixel Size: {(tile_size*3600)/(2**(self.initial_depth+1))}" or {tile_size/(2**(self.initial_depth+1))}°')
-
-        for lon1 in range(-180, 180, tile_size):
-            lon2 = lon1 + tile_size
-
-            for lat1 in range(-90, 90, tile_size):
-                lat2 = lat1 + tile_size
-                
-                key = f"tile_([{lon1},{lon2}],[{lat1},{lat2}]).tif"
-
-                # store parsed bounds + key
-                self.tile_bounds.append( ((lon1, lat1, lon2, lat2), key))
-
-                self.tile_keys.append(key)
-
-    def _build_url(self, key: str) -> str:
-        """
-        Build a GDAL /vsis3/ URL to a COG tile.
-        """
-        #print(f"Building URL /vsis3/{self.bucket_name}/{key}")
-        return f"/vsis3/{self.bucket_name}/{key}"
-    
-    def _open_tile(self, url: str):
-        """Open a COG tile via GDAL and return the dataset."""
-        ds = gdal.Open(url)
-        if ds is None:
-            err = gdal.GetLastErrorMsg()
-            raise RuntimeError(f"GDAL could not open COG: {url}\n{err}")
-        return ds
-
-    def _calculate_depth(self, speed: str) -> int:
-        """
-        angular_span: maximum lon/lat extent in degrees
-        speed: 'fast', 'exact'
-
-        Depth is used as an indirect governer to ensure number of process_tile_node runs stays reasonable.
-        Breadth (which is the true complexity) cannot be calcualted prior to calculation.
-
-        Optional Change: Move to Breadth-first-search and use a time-based cutoff. Downside is that read_gdal is required in every node though
-        """
-
-        pxmin, pymin, pxmax, pymax = self.polygon.bounds
-
-        angular_span = max(pxmax - pxmin, pymax - pymin)
-        perimeter = self.polygon.length
-
-        BASE_SPAN = 90.0
-        SHAPE_CONSTANT = 0.5
-        FAST_INITIAL_DEPTH = 5
-        EXACT_INITIAL_DEPTH = 9
-
-        extra_perimeter = max(0, perimeter - 4 * angular_span) #Define how "Irregular" this shape is - compared to a perfect rectangle
-        print(f"|  Angular Span (square degrees): {angular_span}. Perimeter (degrees): {perimeter}. Extre perimeter (degrees): {extra_perimeter}")
-
-        complexity = angular_span + SHAPE_CONSTANT * extra_perimeter #use this irregularity to infleucne the depth metric
-        complexity = math.log(complexity / BASE_SPAN, 4) #Log4 because quadtrees is 4^N
-
-        base_depth = FAST_INITIAL_DEPTH if speed == "fast" else EXACT_INITIAL_DEPTH #Choose which depth to use
-        depth = int(round(base_depth - complexity))
-        depth = max(3, min(self.max_depth, depth)) #Clamp
-
-        print(f"|  Complexity = {complexity}. Chosen Depth = {depth}. ")
-
-        return depth
+        self.schemes ={
+            "small": {
+                "bucket": "population-cog20",   # rename later
+                "tile_size": 30,
+                "tile_bounds": self._generate_grid(30)
+            },
+            "large": {
+                "bucket": "population-cog180",
+                "tile_size": 180,
+                "tile_bounds": self._generate_grid(180)
+            }
+        }
 
     def aggregate_polygon(self, polygon_geojson: Dict, speed: str = "fast") -> float:
         """
         Finds the population inside a specific polygon
         """
 
+        # ---- Create polygon, Calculate Scheme & Depth for said Scheme ----
+        self.polygon = shape(polygon_geojson)
+        #area_km2 = self._polygon_area_km2()
+        pxmin, pymin, pxmax, pymax = self.polygon.bounds
+        scheme, self.custom_max_depth = self._calculate_depth_scheme(speed, pxmin, pymin, pxmax, pymax)
+
+        self.bucket_name = scheme["bucket"]
+        self.tile_bounds = scheme["tile_bounds"]
+        self.tile_size = scheme["tile_size"]
+        self.scales = None
+        self.max_depth = None
+
+        #print(f"|  Bucket: {self.bucket_name}, Polygon Area: {area_km2:.2f} km²")
+
         start_time = time.time()
     
         total = 0.0
         self.breadth = 0
         self.num_reads = 0
-
-        self.polygon = shape(polygon_geojson)
-        pxmin, pymin, pxmax, pymax = self.polygon.bounds
-
-        self.custom_max_depth = self._calculate_depth(speed)
-
-        if self.custom_max_depth > self.max_depth:
-            raise RuntimeError(f"Custom Max Depth cannot exceed Max Depth")
  
-        #Determine if Tile intersects with rectangular representation of polygon at all
+        # ----  Determine if Tile intersects with rectangular representation of polygon at all ----
         candidate_tiles = []
         for (lon1, lat1, lon2, lat2), key in self.tile_bounds:
             
             if not (pxmax < lon1 or lon2 < pxmin or pymax < lat1 or lat2 < pymin):
                 candidate_tiles.append(((lon1, lat1, lon2, lat2), key))
 
-        #Determine if Tile intersects at all with rectangular representation of polygon
+        # ---- Determine if Tile intersects at all with rectangular representation of polygon ----
         candidate_tiles2 = []
         for (lon1, lat1, lon2, lat2), key in candidate_tiles:
             tile_poly = box(lon1, lat1, lon2, lat2)
@@ -154,7 +76,7 @@ class COGAggregatorGDAL:
             if tile_poly.intersects(self.polygon):
                 candidate_tiles2.append(((lon1, lat1, lon2, lat2), key))
 
-        #For all other tiles, start running recursive algorithm
+        # ---- For all other tiles, start running recursive algorithm ----
         start_time = time.time()
         for (lon1, lat1, lon2, lat2), key in candidate_tiles2:
             t0 = time.time()
@@ -164,6 +86,9 @@ class COGAggregatorGDAL:
 
             if not self.scales:
                 self.scales = self._get_scales(ds)
+            if not self.max_depth: #First time
+                self.max_depth = ds.GetRasterBand(1).GetOverviewCount()
+                self.custom_max_depth = min(self.custom_max_depth, self.max_depth)
 
             t_open = time.time() - t0
             t1 = time.time()
@@ -184,7 +109,93 @@ class COGAggregatorGDAL:
         print(f"|  Number of Reads: {self.num_reads}")
         print(f"|  Time taken = {int((time.time()-start_time) * 1000)} ms\n")
 
-        return total, self.breadth, self.num_reads
+        return total, self.breadth#, area_km2
+    
+
+    def _generate_grid(self, tile_size: int):
+        """
+        Generate all tile keys of the form:
+        tile_([lon_min,lon_max],[lat_min,lat_max]).tif
+
+        tile_size must divide 360 (lon) and 180 (lat), e.g. 5, 10, 30.
+        """
+
+        if 180 % tile_size != 0:
+            raise ValueError(f"Tile size {tile_size}° does not evenly divide the globe.")
+
+        tile_bounds = []
+
+        for lon1 in range(-180, 180, tile_size):
+            lon2 = lon1 + tile_size
+            for lat1 in range(-90, 90, tile_size):
+                lat2 = lat1 + tile_size
+                key = f"tile_([{lon1},{lon2}],[{lat1},{lat2}]).tif"
+                tile_bounds.append(((lon1, lat1, lon2, lat2), key))
+
+        return tile_bounds
+
+    def _build_url(self, key: str) -> str:
+        """
+        Build a GDAL /vsis3/ URL to a COG tile.
+        """
+        #print(f"Building URL /vsis3/{self.bucket_name}/{key}")
+        return f"/vsis3/{self.bucket_name}/{key}"
+    
+    def _open_tile(self, url: str):
+        """Open a COG tile via GDAL and return the dataset."""
+        ds = gdal.Open(url)
+        if ds is None:
+            err = gdal.GetLastErrorMsg()
+            raise RuntimeError(f"GDAL could not open COG: {url}\n{err}")
+        return ds
+
+    def _calculate_depth_scheme(self, speed: str, pxmin, pymin, pxmax, pymax):
+        """
+        Selects tile scheme AND quadtree depth in a single pass.
+
+        Returns:
+            scheme (dict), depth (int)
+        """
+
+        angular_span = max(pxmax - pxmin, pymax - pymin)
+        perimeter = self.polygon.length
+
+        # ---- Shape complexity ----
+        BASE_SPAN = 90.0
+        SHAPE_CONSTANT = 0.5
+
+        extra_perimeter = max(0.0, perimeter - 4 * angular_span)
+
+        complexity_span = angular_span + SHAPE_CONSTANT * extra_perimeter
+        complexity = math.log(complexity_span / BASE_SPAN, 4)
+
+        # ---- Simple Scheme selection Heuristic ----
+        if angular_span > 40 or complexity_span > 180:
+            scheme = self.schemes["large"]
+        else:
+            scheme = self.schemes["small"]
+
+        # ---- Depth Speed selection ----
+        if speed == "fast":
+            base_depth = 5
+        else:
+            base_depth = 9
+
+        if scheme["tile_size"] == 180: # Account for scheme type
+            base_depth += 2 #This is not 1:1 though... COG30 depth 0 = 30, COG180 depth 2 = 45.
+
+        depth = int(round(base_depth - complexity))
+        depth = max(3, depth)
+
+        print(
+            f"|  Span={angular_span:.2f}°, "
+            f"Perimeter={perimeter:.2f}, "
+            f"Complexity={complexity:.2f}, "
+            f"Scheme={scheme['tile_size']}°, "
+            f"Depth={depth}"
+        )
+
+        return scheme, depth
     
     def _world_to_pixel(self, gt, x, y):
         """
@@ -365,10 +376,30 @@ class COGAggregatorGDAL:
                 total += self._process_quadtree_node(ds=ds,bbox=child_bbox,depth=depth + 1)
 
             return total
+            
+    """
+    def _polygon_area_km2(self) -> float:
+
+
+        EARTH_AREA_KM2 = 510_072_000.0
+        GEOD = Geod(ellps="WGS84")
+
+        lon, lat = self.polygon.exterior.coords.xy
+
+        # Signed geodesic area (m²)
+        area_m2, _ = GEOD.polygon_area_perimeter(lon, lat)
+        area_km2 = abs(area_m2) / 1_000_000.0
+
+
+        if area_km2 > 0.5 * EARTH_AREA_KM2:
+            area_km2 = EARTH_AREA_KM2 - area_km2
+
+        return area_km2
+    """
 
 
 def test_polygons():
-    agg = COGAggregatorGDAL(bucket_name = "population-cog20")
+    agg = COGAggregatorGDAL()
 
     example_polygons = [
         ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, "fast"),
@@ -390,7 +421,7 @@ def test_polygons():
         
         start = time.time()
         try:
-            pop, breadth, reads = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
+            pop, breadth = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
 
             dt = time.time() - start
 
@@ -398,6 +429,7 @@ def test_polygons():
             results.append({
                 "name": name,
                 "population": pop,
+                #"area_km2": area,
                 "time": dt,
                 "depth": depth
             })
@@ -408,6 +440,7 @@ def test_polygons():
             results.append({
                 "name": name,
                 "population": None,
+                #"area_km2": None,
                 "depth": depth,
                 "status": "error",
                 "error": str(e)

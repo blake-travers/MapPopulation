@@ -42,12 +42,9 @@ def lambda_handler(event, context):
 
     #Aggregate Population
     try:
-        agg = COGAggregatorGDAL(bucket_name="population-cog20")
+        agg = COGAggregatorGDAL()
 
-        population, breadth, _ = agg.aggregate_polygon(
-            polygon_geojson=polygon,
-            speed=speed
-        )
+        population, breadth = agg.aggregate_polygon(polygon_geojson=polygon,speed=speed)
 
         dt = (time.time() - start_time) * 1000
 
@@ -74,6 +71,7 @@ def lambda_handler(event, context):
         "body": json.dumps({
             "population": population,
             "breadth": breadth,
+            #"area_km2": area,
             "speed": speed,
             "time": int(dt)
         })

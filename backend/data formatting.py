@@ -13,22 +13,15 @@ from osgeo import gdal
 import numpy as np
 
 
-def format_data():
+def format_data(tile_size = 30, depth = 14, input_res = 3.0,
+                scales = [1000, 1000, 1000, 100, 100, 100, 100, 100, 10, 10, 10, 10, 10, 1, 1],
+                output_dir = "cog_tiles", input_tif = "./GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"):
     #Convert Tif and Overviews to a COG
-    input_tif = "./GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0.tif"
-    output_dir = "cog_tiles"
     os.makedirs(output_dir, exist_ok=True)
+    num_pixels = 2 ** depth
 
-    #Purpose of scales is to increase number of decimal places supported for specific overview sizes (int32 is restrictive)
-    scales = [1000, 1000, 1000,
-            100, 100, 100, 100, 100,
-            10, 10, 10, 10, 10,
-            1, 1]
-
-    tile_size = 30
-    num_pixels = 2**14
     print(f'Pixel Size: {(tile_size*3600)/num_pixels}", {tile_size/num_pixels}d')
-    correction_factor = ((tile_size/num_pixels) / (3.0/3600.0))**2
+    correction_factor = ((tile_size/num_pixels) / (input_res/3600.0))**2 #Change
 
     def downsample_sum(arr):
         h, w = arr.shape
@@ -39,10 +32,12 @@ def format_data():
         scaled = np.rint(arr * scale)
 
         if np.any(scaled < 0):
-            raise ValueError(f"Band {i+1}: scaled values < 0 — check scaling logic")
+            raise ValueError("Scaled values < 0 — check scaling logic")
 
         if np.any(scaled > 4294967295):
-            raise ValueError( f"Band {i+1}: scaled values exceed uint32 limit — "f"max={scaled.max()} scale={scale}")
+            raise ValueError(
+                f"Scaled values exceed uint32 limit — max={scaled.max()} scale={scale}"
+            )
         scaled = scaled.astype("uint32")
         return scaled
 
@@ -146,9 +141,8 @@ def format_data():
 
     print("COG creation complete.")
 
-def check_single_file():
+def check_single_file(cog_path="./cog_tiles/tile_([0,30],[30,60]).tif"):
     print("Starting Check")
-    cog_path = "./cog_tiles/tile_([0,30],[30,60]).tif"
 
     ds = gdal.Open(cog_path)
     print("COG File loaded")
@@ -267,4 +261,15 @@ def check_all_data():
         for f in corrupted_files:
             print(" -", f)
 
-check_single_file()
+scales30 = [1000, 1000, 1000,
+            100, 100, 100, 100, 100,
+            10, 10, 10, 10, 10,
+            1, 1] #15 long for 14 overviews + 1 base
+
+scales180 = [100, 100, 100, 100, 10, 10, 10,
+             10, 10, 1, 1, 1, #This one here is 45 degrees.. close to previous 30 max
+             0.1, 0.1] #12 long for 11 overviews + 1 base
+
+format_data(tile_size=180, depth=13, input_res=30.0, scales=scales180, output_dir="cog_tiles_180", input_tif = "./GHS_POP_E2025_GLOBE_R2023A_4326_30ss_V1_0/GHS_POP_E2025_GLOBE_R2023A_4326_30ss_V1_0.tif")
+
+check_single_file(cog_path="./cog_tiles_180/tile_([0,180],[-90,90]).tif")
