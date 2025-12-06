@@ -58,28 +58,59 @@
 
             <div id="sidebar" aria-hidden="true">
                 <div class="sidebar-inner">
-                    <h2>Population by Shape on a Map</h2>
-                    <p>Use the tools on the left to draw a shape & find the population of those living inside.</p>
-                    <p>Calculation Mode: </p>
-                    <div id="speedcontroller" style="display:flex;">
-                        
-                        <label style="display:block; cursor:pointer;">
-                            <input type="radio" name="speedMode" value="fast" checked>
-                            Fast
-                        </label>
 
-                        <label style="display:block; cursor:pointer;">
-                            <input type="radio" name="speedMode" value="exact">
-                            Exact
-                        </label>
+                    <!-- PERSISTENT HEADER -->
+                    <div class="sidebar-header">
+                        <h2>Population Inside a Shape on a Map</h2>
                     </div>
-                    <br><br>
 
-                    <div id="shapeList"></div>
+                    <!-- TABS -->
+                    <div class="sidebar-tabs">
+                        <button class="tab active" data-tab="shapes">Shapes</button>
+                        <button class="tab" data-tab="settings">Settings</button>
+                    </div>
+
+                    <!-- TAB CONTENT -->
+                    <div class="sidebar-panels">
+
+                        <!-- SHAPES TAB -->
+                        <div class="tab-panel active" id="tab-shapes">
+                            <div id="emptyState" class="empty-state">
+                                <p><b>No shapes yet</b></p>
+                                <p>Draw a shape on the map (using the tools to the left of your screen) to calculate population.</p>
+
+                                <button id="addSampleShapesBtn">
+                                    Create example shapes
+                                </button>
+                            </div>
+
+                            <div id="shapeList"></div>
+                        </div>
+
+                        <!-- SETTINGS TAB -->
+                        <div class="tab-panel" id="tab-settings">
+                            <p>Calculation Mode:</p>
+
+                            <div id="speedcontroller" style="display:flex; gap:10px;">
+                                <label>
+                                    <input type="radio" name="speedMode" value="fast" checked>
+                                    Fast
+                                </label>
+
+                                <label>
+                                    <input type="radio" name="speedMode" value="exact">
+                                    Exact
+                                </label>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
+
             </div>
         </div>
 
         <script src="main.js" defer></script>
     </body>
 </html>
+

@@ -1,8 +1,16 @@
 :root
 {
-    --color-bg: #f7f7f7;
-    --color-bg-border: #54617e;
-    --color-highlight: #dddddd;
+    --color-bg: #f0f0f0;
+    --color-bg-border: #444444;
+    --color-highlight: #e6e6e6;
+    --color-shape-panel: #d5dceb;
+    --color-settings-panel: #d5e9eb;
+    --color-header: #464646;
+}
+
+*, *::before, *::after
+{
+    box-sizing: border-box;
 }
 
 body, html, div, input, button, h1, h2, h3, p
@@ -54,7 +62,7 @@ html,body
     z-index: 3000;
     background: var(--color-bg);
 
-    border-right: 4px solid var(--color-bg);
+    border-right: 4px solid transparent;
     border-left: 2px solid var(--color-bg-border);
     border-top: 2px solid var(--color-bg-border);
     border-bottom: 2px solid var(--color-bg-border);
@@ -78,17 +86,15 @@ html,body
 
 .sidebar-inner
 {
+    display: flex;
+    flex-direction: column;
+
     flex: 1 1 auto;
     min-height: 0;
-    font-size: 14px;
 
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
 
-    padding: 15px;
-    padding-bottom: 60px;
-
-    box-sizing: border-box;
+    padding: 0;
 }
 
 #searchResults
@@ -224,7 +230,7 @@ html,body
     padding: 4px 6px;
 
     font-size: 14px;
-    color: #333;
+    color: var(--color-header);
 
     opacity: 0;
     pointer-events: none;
@@ -295,6 +301,138 @@ html,body
     transform: rotate(180deg); /* ▼ → ▲ */
 }
 
-.leaflet-interactive {
+.leaflet-interactive
+{
     transition: fill-opacity 0.1s ease;
+}
+
+.sidebar-header
+{
+    margin-bottom: 10px;
+    text-align: center;
+    padding: 15px 15px 0px;
+}
+
+.sidebar-header p
+{
+    margin: 18px;
+    font-size: 14px;
+    color: var(--color-header);
+}
+
+.sidebar-tabs {
+    display: flex;
+    width: 100%;
+    margin: 18px 0 0;   /* ← no negative margins, EVER */
+}
+
+.sidebar-tabs .tab {
+    flex: 1;
+    padding: 8px 0;
+
+    border: 2px solid var(--color-bg-border);
+
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+
+    margin: 0;
+
+    transition: background 0.05s ease, border-color 0.05s ease;
+}
+
+/* Shapes tab is always blue-ish */
+.sidebar-tabs .tab[data-tab="shapes"] {
+    background: var(--color-shape-panel);
+    margin-left: -2px;
+}
+
+/* Settings tab is always green-ish, shares border with Shapes */
+.sidebar-tabs .tab[data-tab="settings"] {
+    background: var(--color-settings-panel);
+    margin-left: -2px;  /* collapse the middle border */
+    margin-right: -2px;
+    
+}
+
+/* Subtle hover tweaks (totally optional) */
+.sidebar-tabs .tab[data-tab="shapes"]:hover {
+    background: #c8d3ec;
+}
+.sidebar-tabs .tab[data-tab="settings"]:hover {
+    background: #c7eaf0;
+}
+
+/* Active tab: same colour, just visually joined to the panel */
+.sidebar-tabs .tab.active {
+    border-bottom-color: transparent;
+    font-weight: 600;
+}
+
+
+.sidebar-panels {
+    flex: 1 1 auto;
+    padding: 12px 15px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    
+}
+
+/* When "Shapes" is selected */
+#sidebar.mode-shapes .sidebar-panels {
+    background: var(--color-shape-panel);
+}
+
+/* When "Settings" is selected */
+#sidebar.mode-settings .sidebar-panels {
+    background: var(--color-settings-panel);
+}
+
+#sidebarButton.mode-shapes {
+    background: var(--color-shape-panel);
+}
+
+#sidebarButton.mode-settings {
+    background: var(--color-settings-panel);
+}
+
+.tab-panel
+{
+    display: none;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.tab-panel.active
+{
+    display: block;
+}
+
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--color-header);
+}
+
+.empty-state p {
+    margin: 8px 0;
+}
+
+.empty-state button {
+    margin-top: 14px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+
+    background: var(--color-bg);
+    border: 2px solid var(--color-bg-border);
+    border-radius: 4px;
+
+    transition: background 0.1s ease;
+}
+
+.empty-state button:hover {
+    background: var(--color-highlight);
 }

@@ -9,6 +9,141 @@ const SIDEBAR_WIDTH = '30%';
 const shapes = new Map();
 let shapeCounter = 1;
 
+// ===== Sidebar Tabs =====
+const tabButtons = document.querySelectorAll(".sidebar-tabs .tab");
+const tabPanels  = document.querySelectorAll(".tab-panel");
+
+function setSidebarMode(mode) {
+    sidebar.classList.remove("mode-shapes", "mode-settings");
+    sidebar.classList.add(`mode-${mode}`);
+
+    toggleBtn.classList.remove("mode-shapes", "mode-settings");
+    toggleBtn.classList.add(`mode-${mode}`);
+}
+
+// initial panel colour = shapes
+setSidebarMode("shapes");
+
+tabButtons.forEach(tabBtn => {
+    tabBtn.addEventListener("click", () => {
+        const target = tabBtn.dataset.tab;
+
+        tabButtons.forEach(t => t.classList.remove("active"));
+        tabPanels.forEach(p => p.classList.remove("active"));
+
+        tabBtn.classList.add("active");
+        document.getElementById(`tab-${target}`).classList.add("active");
+
+        setSidebarMode(target);
+    });
+});
+
+const emptyState = document.getElementById("emptyState");
+const shapeList = document.getElementById("shapeList");
+
+function updateEmptyState() {
+    if (shapes.size === 0) {
+        emptyState.style.display = "block";
+        shapeList.style.display = "none";
+    } else {
+        emptyState.style.display = "none";
+        shapeList.style.display = "block";
+    }
+}
+
+updateEmptyState();
+
+
+async function addSampleShapes() {
+    const samples = [
+        {
+            name: "Sample1",
+            coords:
+            [
+                [-37.876, 144.921],
+                [-37.856, 144.927],
+                [-37.885, 144.969],
+                [-37.852, 145.019],
+                [-37.790, 145.020],
+                [-37.761, 144.958],
+                [-37.767, 144.911],
+                [-37.787, 144.875],
+                [-37.816, 144.858],
+                [-37.861, 144.853]
+            ]
+        },
+        {
+            name: "Sample2",
+            coords:
+            [
+                [-38.003, 144.396],
+                [-38.051, 144.313],
+                [-38.148, 144.278],
+                [-38.234, 144.286],
+                [-38.258, 144.374],
+                [-38.213, 144.414],
+                [-38.146, 144.410],
+                [-38.134, 144.374],
+                [-38.091, 144.398]
+            ]
+        },
+        {
+            name: "Sample3",
+            coords:
+            [
+                [-37.993, 145.052],
+                [-38.026, 145.094],
+                [-38.018, 145.124],
+                [-37.991, 145.120],
+                [-37.947, 145.154],
+                [-37.915, 145.167],
+                [-37.894, 145.143],
+                [-37.882, 145.046],
+                [-37.900, 145.005],
+                [-37.917, 144.979],
+                [-37.972, 145.002],
+                [-38.003, 145.032]
+            ]
+        },
+        {
+            name: "Sample4",
+            coords:
+            [
+                [-38.496, 145.401],
+                [-38.554, 145.398],
+                [-38.586, 145.366],
+                [-38.532, 145.085],
+                [-38.445, 145.142],
+                [-38.433, 145.307]
+            ]
+        }
+    ];
+
+    for (const sample of samples) {
+        const layer = L.polygon(sample.coords);
+
+        layer._isSample = true;
+        layer._sampleName = sample.name;
+
+        await createShapeSequential(layer);
+    }
+}
+
+function createShapeSequential(layer) {
+    return new Promise(resolve => {
+        layer.once("population:done", resolve);
+
+        map.fire(L.Draw.Event.CREATED, {
+            layer,
+            layerType: "polygon"
+        });
+    });
+}
+
+
+
+
+
 const COLOR_PALETTE =
 [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
@@ -43,7 +178,7 @@ function closeAllDeleteConfirms()
 }
 
 // Initialize map
-const map = L.map('map').setView([-37.8136, 144.9631], 11);
+const map = L.map('map').setView([-38, 145.2631], 10);
 
 // Initialise layer/s
 var CartoDB_VoyagerNoLabels = L.tileLayer
@@ -196,10 +331,24 @@ map.on(L.Draw.Event.CREATED, async function (event) {
             shapes.delete(id);
         });
 
+        confirmYes.addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            drawnItems.removeLayer(layer);
+            item.remove();
+            shapes.delete(id);
+
+            updateEmptyState();
+        });
+
         document.getElementById("shapeList").appendChild(item);
 
         // --- Store shape ---
         shapes.set(id, { layer, item });
+
+        updateEmptyState();
+
+        layer.fire("population:done");
 
         // --- Hover sync: shape → sidebar ---
         layer.on("mouseover", () => {
@@ -427,3 +576,13 @@ document.addEventListener("keydown", (e) => {
         closeAllDeleteConfirms();
     }
 });
+
+document.getElementById("addSampleShapesBtn")
+    .addEventListener("click", () => {
+        addSampleShapes();
+    });
+
+
+// TODO Settings: Map Type + Selected Units + Debug Mode
+// TODO Backend: Area Calculation + Urban/Rural/Suburba density + COG Tile Size
+// TODO Frontend: Magnifying glass for every shape - auto pan
