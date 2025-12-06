@@ -178,7 +178,7 @@ function closeAllDeleteConfirms()
 }
 
 // Initialize map
-const map = L.map('map').setView([-38, 145.2631], 10);
+const map = L.map('map', {minZoom: 3, maxZoom: 16}).setView([-38, 145.2631], 10);
 
 // Initialise layer/s
 var CartoDB_VoyagerNoLabels = L.tileLayer
@@ -251,6 +251,65 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
     drawnItems.addLayer(layer);
 
+    function unwrapLongitudes(coords)
+    {
+        const out = [];
+        let prevLon = coords[0][0];
+        let offset = 0;
+
+        for (let i = 0; i < coords.length; i++) {
+            let lon = coords[i][0];
+
+            let diff = lon - prevLon;
+
+            if (diff > 180) offset -= 360;
+            else if (diff < -180) offset += 360;
+
+            const unwrappedLon = lon + offset;
+            out.push([unwrappedLon, coords[i][1]]);
+
+            prevLon = lon;
+        }
+
+        return out;
+    }
+
+    function recenterRing(ring)
+    {
+        const lons = ring.map(p => p[0]);
+        const avgLon = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+        const centerShift = Math.round(avgLon / 360) * 360;
+
+        return ring.map(([lon, lat]) => [lon - centerShift, lat]);
+    }
+
+    function normalisePolygonGeometry(geometry) {
+        if (geometry.type !== "Polygon") return geometry;
+
+        const fixedRings = geometry.coordinates.map(ring => {
+            const unwrapped = unwrapLongitudes(ring);
+            return recenterRing(unwrapped);
+        });
+
+        return {
+            ...geometry,
+            coordinates: fixedRings
+        };
+    }
+
+    const rawGeom = layer.toGeoJSON().geometry;
+    const safeGeom = normalisePolygonGeometry(rawGeom);
+
+    const area_m2 = turf.area({
+        type: "Feature",
+        geometry: safeGeom,
+        properties: {}
+    });
+
+    const area_km2 = area_m2 / 1_000_000;
+
+
     try {
         const response = await fetch(
             "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
@@ -258,7 +317,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    polygon: layer.toGeoJSON().geometry,
+                    polygon: safeGeom,
                     speed: document.querySelector(
                         'input[name="speedMode"]:checked'
                     ).value
@@ -293,7 +352,14 @@ map.on(L.Draw.Event.CREATED, async function (event) {
                 valid
                 ? `
                     <p><b>Population:</b> ${Math.round(data.population).toLocaleString()}</p>
-                    <p><b>Mode:</b> ${data.speed}</p>
+
+                    <p>
+                        <b>Area:</b>
+                        ${area_km2.toLocaleString(undefined, {
+                            maximumFractionDigits: 2
+                        })} km²
+                    </p>
+
                     <p><b>Time:</b> ${data.time} ms</p>
                 `
                 : `
@@ -342,6 +408,13 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         });
 
         document.getElementById("shapeList").appendChild(item);
+
+        // Auto-scroll to bottom
+        const panels = document.querySelector(".sidebar-panels");
+        panels.scrollTo({
+            top: panels.scrollHeight,
+            behavior: "smooth"
+        });
 
         // --- Store shape ---
         shapes.set(id, { layer, item });
