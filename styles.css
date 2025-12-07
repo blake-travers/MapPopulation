@@ -17,6 +17,7 @@ body, html, div, input, button, h1, h2, h3, p
 {
     font-family: "Inter", sans-serif;
 }
+
 html,body
 {
     height:100%;
@@ -36,7 +37,7 @@ html,body
 {
     flex:1 1 auto;
     height:100%;
-    transition: width 0.2s ease;
+    transition: width 0.15s ease;
     min-width: 0;
 }
 
@@ -46,7 +47,7 @@ html,body
     background: var(--color-bg);
     height:100%;
     overflow:hidden;
-    transition: width 0.2s ease, padding 0.2s ease;
+    transition: width 0.15s ease;
     box-sizing:border-box;
     padding:0;
     display: flex;
@@ -62,7 +63,7 @@ html,body
     z-index: 3000;
     background: var(--color-bg);
 
-    border-right: 4px solid transparent;
+    border-right: 6px solid transparent;
     border-left: 2px solid var(--color-bg-border);
     border-top: 2px solid var(--color-bg-border);
     border-bottom: 2px solid var(--color-bg-border);
@@ -70,12 +71,12 @@ html,body
     padding: 8px 10px;
     cursor: pointer;
     border-radius: 4px;
-    transition: right 0.2s ease;
+    transition: right 0.15s ease;
     transform: translate(8%, -50%);
     display:flex;
     align-items:center;
     justify-content:center;
-    width:48px;
+    width:56px;
     height:196px;
     font-size:16px;
     line-height:1;
@@ -308,7 +309,6 @@ html,body
 
 .sidebar-header
 {
-    margin-bottom: 10px;
     text-align: center;
     padding: 15px 15px 0px;
 }
@@ -435,4 +435,238 @@ html,body
 
 .empty-state button:hover {
     background: var(--color-highlight);
+}
+
+
+.settings-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 14px;
+}
+
+/* Top action bar */
+.settings-actions {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    flex-shrink: 0;
+}
+
+.settings-actions .settings-btn {
+    flex: 1 1 0;
+    justify-content: center;
+}
+
+/* Main two-column area */
+.settings-main {
+    display: flex;
+    gap: 18px;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.settings-left,
+.settings-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+}
+
+.settings-section {
+    padding: 10px 12px;
+    border-radius: 4px;
+}
+
+.settings-section h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.settings-btn {
+    background: var(--color-bg);
+    border: 2px solid var(--color-bg-border);
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.settings-btn:hover {
+    background: var(--color-highlight);
+}
+
+.radio-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Vertical radio layout (e.g. Calculation Mode) */
+.radio-group.vertical {
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Individual radio row */
+.radio-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    font-size: 14px;
+    cursor: pointer;
+
+    padding: 2px 0;
+}
+
+.radio-option input {
+    cursor: pointer;
+}
+
+/* Subtle hover for clarity */
+.radio-option:hover {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 3px;
+}
+
+.unit-options {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.unit-options label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.settings-help {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--color-header);
+    opacity: 0.85;
+}
+.info-icon {
+    width: 16px;
+    height: 16px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    border: 1.5px solid var(--color-bg-border);
+
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+
+    color: var(--color-header);
+    opacity: 0.75;
+    flex-shrink: 0;
+
+    cursor: pointer;
+}
+
+.info-icon:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.settings-footer {
+    flex-shrink: 0;
+    height: 18%;
+    border-top: 1px dashed rgba(0, 0, 0, 0.15);
+}
+
+
+/* --- Map type preview layout --- */
+
+.map-type-group {
+    gap: 8px;
+}
+
+.map-type-option {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+
+    padding: 6px;
+    border-radius: 4px;
+}
+
+.map-type-option:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.map-type-label {
+    font-size: 14px;
+}
+
+/* Preview box */
+.map-preview {
+    width: 176px;
+    height: 92px;
+
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.35);
+
+    background-size: cover;
+    background-position: center;
+
+    flex-shrink: 0;
+}
+
+/* CARTO Voyager preview */
+.map-preview.vector1 {
+    background-image: url("https://a.basemaps.cartocdn.com/rastertiles/voyager/3/4/2.png");
+    background-size: cover;
+    background-position: center;
+}
+
+/* OpenStreetMap preview */
+.map-preview.vector2 {
+    background-image: url("https://a.tile.openstreetmap.org/3/4/2.png");
+    background-size: cover;
+    background-position: center;
+}
+
+/* Satellite (ESRI World Imagery) */
+.map-preview.satellite {
+    background-image: url("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/4");
+    background-size: cover;
+    background-position: center;
+}
+
+/* Terrain (ESRI Topographic) */
+.map-preview.terrain {
+    background-image: url("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/3/2/4");
+    background-size: cover;
+    background-position: center;
+}
+
+/* Dark (CARTO Dark Matter) */
+.map-preview.dark {
+    background-image: url("https://a.basemaps.cartocdn.com/dark_all/3/4/2.png");
+    background-size: cover;
+    background-position: center;
+}
+
+
+/* Active state highlight */
+.map-type-option input:checked + .map-type-label + .map-preview {
+    outline: 2px solid var(--color-bg-border);
+    outline-offset: 1px;
 }

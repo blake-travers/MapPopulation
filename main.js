@@ -8,6 +8,7 @@ const SIDEBAR_WIDTH = '30%';
 
 const shapes = new Map();
 let shapeCounter = 1;
+let currentAreaUnit = "km2";
 
 // ===== Sidebar Tabs =====
 const tabButtons = document.querySelectorAll(".sidebar-tabs .tab");
@@ -141,8 +142,45 @@ function createShapeSequential(layer) {
 }
 
 
+function formatArea(area_m2) {
+    switch (currentAreaUnit) {
+        case "ha":
+            return {
+                value: area_m2 / 10_000,
+                unit: "ha"
+            };
+
+        case "mi2":
+            return {
+                value: area_m2 / 2_589_988.110336,
+                unit: "mi²"
+            };
+
+        case "km2":
+        default:
+            return {
+                value: area_m2 / 1_000_000,
+                unit: "km²"
+            };
+    }
+}
 
 
+function refreshAllAreas() {
+    shapes.forEach(({ item, area_m2 }) => {
+        const formatted = formatArea(area_m2);
+
+        const valueEl = item.querySelector(".area-value");
+        const unitEl  = item.querySelector(".area-unit");
+
+        if (!valueEl || !unitEl) return;
+
+        valueEl.textContent = formatted.value.toLocaleString(undefined, {
+            maximumFractionDigits: 2
+        });
+        unitEl.textContent = formatted.unit;
+    });
+}
 
 const COLOR_PALETTE =
 [
@@ -180,39 +218,54 @@ function closeAllDeleteConfirms()
 // Initialize map
 const map = L.map('map', {minZoom: 3, maxZoom: 16}).setView([-38, 145.2631], 10);
 
-// Initialise layer/s
-var CartoDB_VoyagerNoLabels = L.tileLayer
-(
-    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
-    {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20
-    }
-);
+// Layer options
+const baseLayers = {
+    vector_carto: L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        {
+            subdomains: 'abcd',
+            maxZoom: 20,
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }
+    ),
 
-var Esri_WorldGrayCanvas = L.tileLayer
-(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    {
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
-        maxZoom: 16
-    }
-);
+    vector_osm: L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            subdomains: 'abc',
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }
+    ),
 
+    satellite: L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+            maxZoom: 18,
+            attribution: '&copy; Esri'
+        }
+    ),
 
-var CartoDB_PositronOnlyLabels = L.tileLayer
-(
-    'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
-    {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20
-    }
-);
+    terrain: L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+        {
+            maxZoom: 18,
+            attribution: '&copy; Esri'
+        }
+    ),
 
-CartoDB_VoyagerNoLabels.addTo(map)
-CartoDB_PositronOnlyLabels.addTo(map);
+    dark: L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        {
+            subdomains: 'abcd',
+            maxZoom: 20,
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }
+    )
+};
+
+let currentBaseLayer = baseLayers.vector_carto;
+currentBaseLayer.addTo(map);
 
 
 // Folium-like Draw controls
@@ -307,7 +360,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         properties: {}
     });
 
-    const area_km2 = area_m2 / 1_000_000;
+    const formattedArea = formatArea(area_m2);
 
 
     try {
@@ -319,7 +372,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
                 body: JSON.stringify({
                     polygon: safeGeom,
                     speed: document.querySelector(
-                        'input[name="speedMode"]:checked'
+                        'input[name="calcMode"]:checked'
                     ).value
                 })
             }
@@ -353,11 +406,14 @@ map.on(L.Draw.Event.CREATED, async function (event) {
                 ? `
                     <p><b>Population:</b> ${Math.round(data.population).toLocaleString()}</p>
 
-                    <p>
+                    <p class="shape-area">
                         <b>Area:</b>
-                        ${area_km2.toLocaleString(undefined, {
-                            maximumFractionDigits: 2
-                        })} km²
+                        <span class="area-value">
+                            ${formattedArea.value.toLocaleString(undefined, {
+                                maximumFractionDigits: 2
+                            })}
+                        </span>
+                        <span class="area-unit">${formattedArea.unit}</span>
                     </p>
 
                     <p><b>Time:</b> ${data.time} ms</p>
@@ -416,8 +472,11 @@ map.on(L.Draw.Event.CREATED, async function (event) {
             behavior: "smooth"
         });
 
-        // --- Store shape ---
-        shapes.set(id, { layer, item });
+        shapes.set(id, {
+            layer,
+            item,
+            area_m2
+        });
 
         updateEmptyState();
 
@@ -655,7 +714,28 @@ document.getElementById("addSampleShapesBtn")
         addSampleShapes();
     });
 
+// ===== Map type switching =====
+document.querySelectorAll('input[name="mapType"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        const selected = radio.value;
 
-// TODO Settings: Map Type + Selected Units + Debug Mode
-// TODO Backend: Area Calculation + Urban/Rural/Suburba density + COG Tile Size
+        if (!baseLayers[selected]) return;
+
+        // Remove old base layer
+        map.removeLayer(currentBaseLayer);
+
+        // Add new base layer
+        currentBaseLayer = baseLayers[selected];
+        currentBaseLayer.addTo(map);
+    });
+});
+
+document.querySelectorAll('input[name="units"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        currentAreaUnit = radio.value;
+        refreshAllAreas();
+    });
+});
+
+
 // TODO Frontend: Magnifying glass for every shape - auto pan

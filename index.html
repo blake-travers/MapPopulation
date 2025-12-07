@@ -89,19 +89,154 @@
 
                         <!-- SETTINGS TAB -->
                         <div class="tab-panel" id="tab-settings">
-                            <p>Calculation Mode:</p>
 
-                            <div id="speedcontroller" style="display:flex; gap:10px;">
-                                <label>
-                                    <input type="radio" name="speedMode" value="fast" checked>
-                                    Fast
-                                </label>
+                            <div class="settings-container">
 
-                                <label>
-                                    <input type="radio" name="speedMode" value="exact">
-                                    Exact
-                                </label>
+                                <!-- A) GLOBAL ACTIONS BAR -->
+                                <div class="settings-actions">
+                                    <button class="settings-btn danger">DELETE ALL SHAPES</button>
+                                    <button class="settings-btn">RESET MAP</button>
+                                    <button class="settings-btn">RESET ALL SETTINGS</button>
+                                </div>
+
+                                <!-- B) CORE SETTINGS AREA -->
+                                <div class="settings-main">
+
+                                    <!-- LEFT COLUMN -->
+                                    <div class="settings-left">
+
+                                        <!-- Calculation Mode -->
+                                        <section class="settings-section">
+                                            <h3>Calculation Mode</h3>
+
+                                            <div class="radio-group">
+                                                <label class="radio-option">
+                                                    <input type="radio" name="calcMode" value="fast" checked>
+                                                    <span>Fast</span>
+                                                    <span class="info-icon">i</span>
+                                                </label>
+
+                                                <label class="radio-option">
+                                                    <input type="radio" name="calcMode" value="exact">
+                                                    <span>Exact</span>
+                                                    <span class="info-icon">i</span>
+                                                </label>
+                                            </div>
+
+                                            <p class="settings-help">
+                                                Fast mode prioritises speed over precision using reduced tile depth.
+                                            </p>
+                                        </section>
+
+                                        <!-- Units -->
+                                        <section class="settings-section">
+                                            <h3>Area Units</h3>
+
+                                            <div class="radio-group">
+                                                <label class="radio-option">
+                                                    <input type="radio" name="units" value="km2" checked>
+                                                    km²
+                                                </label>
+                                                <label class="radio-option">
+                                                    <input type="radio" name="units" value="mi2">
+                                                    mi²
+                                                </label>
+                                                <label class="radio-option">
+                                                    <input type="radio" name="units" value="ha">
+                                                    hectares
+                                                </label>
+                                            </div>
+                                        </section>
+                                        
+                                        <!-- Shape Panning -->
+                                        <section class="settings-section">
+                                            <h3>Shape Panning <span class="info-icon">i</span> </h3>
+
+                                            <div class="radio-group">
+                                                <label class="radio-option">
+                                                    <input type="radio" name="unlockShapes" value="off" checked>
+                                                    Enabled
+                                                </label>
+
+                                                <label class="radio-option">
+                                                    <input type="radio" name="unlockShapes" value="on">
+                                                    Disabled
+                                                </label>
+                                            </div>
+                                        </section>
+
+                                        <!-- Confirm Delete -->
+                                        <section class="settings-section">
+                                            <h3>Confirm Delete</h3>
+
+                                            <div class="radio-group">
+                                                <label class="radio-option">
+                                                    <input type="radio" name="confirmDelete" value="yes" checked>
+                                                    Enabled
+                                                </label>
+
+                                                <label class="radio-option">
+                                                    <input type="radio" name="confirmDelete" value="no">
+                                                    Disabled
+                                                </label>
+                                            </div>
+                                        </section>
+
+                                    </div>
+
+                                    <!-- RIGHT COLUMN -->
+                                    <div class="settings-right">
+
+                                        <!-- Map Type -->
+                                        <section class="settings-section">
+                                            <h3>Map Type</h3>
+
+                                            <div class="radio-group vertical map-type-group">
+
+                                                <label class="radio-option map-type-option">
+                                                    <input type="radio" name="mapType" value="vector_carto" checked>
+                                                    <span class="map-type-label">Carto</span>
+                                                    <div class="map-preview vector1"></div>
+                                                </label>
+
+                                                <label class="radio-option map-type-option">
+                                                    <input type="radio" name="mapType" value="vector_osm">
+                                                    <span class="map-type-label">OSM</span>
+                                                    <div class="map-preview vector2"></div>
+                                                </label>
+
+                                                <label class="radio-option map-type-option">
+                                                    <input type="radio" name="mapType" value="satellite">
+                                                    <span class="map-type-label">Satellite</span>
+                                                    <div class="map-preview satellite"></div>
+                                                </label>
+
+                                                <label class="radio-option map-type-option">
+                                                    <input type="radio" name="mapType" value="terrain">
+                                                    <span class="map-type-label">Terrain</span>
+                                                    <div class="map-preview terrain"></div>
+                                                </label>
+
+                                                <label class="radio-option map-type-option">
+                                                    <input type="radio" name="mapType" value="dark">
+                                                    <span class="map-type-label">Dark</span>
+                                                    <div class="map-preview dark"></div>
+                                                </label>
+
+                                            </div>
+                                        </section>
+
+
+                                    </div>
+                                </div>
+
+                                <!-- C) RESERVED FUTURE SECTION -->
+                                <div class="settings-footer">
+                                    <!-- intentionally empty for now -->
+                                </div>
+
                             </div>
+
                         </div>
 
                     </div>
