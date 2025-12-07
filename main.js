@@ -316,6 +316,53 @@ const drawControl = new L.Control.Draw
 );
 map.addControl(drawControl);
 
+function unwrapLongitudes(coords)
+{
+    const out = [];
+    let prevLon = coords[0][0];
+    let offset = 0;
+
+    for (let i = 0; i < coords.length; i++) {
+        let lon = coords[i][0];
+
+        let diff = lon - prevLon;
+
+        if (diff > 180) offset -= 360;
+        else if (diff < -180) offset += 360;
+
+        const unwrappedLon = lon + offset;
+        out.push([unwrappedLon, coords[i][1]]);
+
+        prevLon = lon;
+    }
+
+    return out;
+}
+
+function recenterRing(ring)
+{
+    const lons = ring.map(p => p[0]);
+    const avgLon = lons.reduce((a, b) => a + b, 0) / lons.length;
+
+    const centerShift = Math.round(avgLon / 360) * 360;
+
+    return ring.map(([lon, lat]) => [lon - centerShift, lat]);
+}
+
+function normalisePolygonGeometry(geometry) {
+    if (geometry.type !== "Polygon") return geometry;
+
+    const fixedRings = geometry.coordinates.map(ring => {
+        const unwrapped = unwrapLongitudes(ring);
+        return recenterRing(unwrapped);
+    });
+
+    return {
+        ...geometry,
+        coordinates: fixedRings
+    };
+}
+
 
 // Map + AWS Lambda Functionality //
 map.on(L.Draw.Event.CREATED, async function (event) {
@@ -331,52 +378,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
     drawnItems.addLayer(layer);
 
-    function unwrapLongitudes(coords)
-    {
-        const out = [];
-        let prevLon = coords[0][0];
-        let offset = 0;
 
-        for (let i = 0; i < coords.length; i++) {
-            let lon = coords[i][0];
-
-            let diff = lon - prevLon;
-
-            if (diff > 180) offset -= 360;
-            else if (diff < -180) offset += 360;
-
-            const unwrappedLon = lon + offset;
-            out.push([unwrappedLon, coords[i][1]]);
-
-            prevLon = lon;
-        }
-
-        return out;
-    }
-
-    function recenterRing(ring)
-    {
-        const lons = ring.map(p => p[0]);
-        const avgLon = lons.reduce((a, b) => a + b, 0) / lons.length;
-
-        const centerShift = Math.round(avgLon / 360) * 360;
-
-        return ring.map(([lon, lat]) => [lon - centerShift, lat]);
-    }
-
-    function normalisePolygonGeometry(geometry) {
-        if (geometry.type !== "Polygon") return geometry;
-
-        const fixedRings = geometry.coordinates.map(ring => {
-            const unwrapped = unwrapLongitudes(ring);
-            return recenterRing(unwrapped);
-        });
-
-        return {
-            ...geometry,
-            coordinates: fixedRings
-        };
-    }
 
     const rawGeom = layer.toGeoJSON().geometry;
     const safeGeom = normalisePolygonGeometry(rawGeom);
@@ -556,6 +558,63 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         console.error("Population error:", err);
     }
 });
+
+// Recalculate upon shape edit
+
+map.on(L.Draw.Event.EDITED, async (e) => {
+    for (const layer of Object.values(e.layers._layers)) {
+
+        let entry = null;
+        for (const [, e] of shapes) {
+            if (e.layer === layer) {
+                entry = e;
+                break;
+            }
+        }
+        if (!entry) continue;
+
+        const rawGeom = layer.toGeoJSON().geometry;
+        const safeGeom = normalisePolygonGeometry(rawGeom);
+
+        const area_m2 = turf.area({
+            type: "Feature",
+            geometry: safeGeom
+        });
+        entry.area_m2 = area_m2;
+
+        const formatted = formatArea(area_m2);
+        entry.item.querySelector(".area-value").textContent =
+            formatted.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        entry.item.querySelector(".area-unit").textContent = formatted.unit;
+
+        const response = await fetch(
+            "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    polygon: safeGeom,
+                    speed: document.querySelector(
+                        'input[name="calcMode"]:checked'
+                    ).value
+                })
+            }
+        );
+
+        const data = await response.json();
+        if (Number.isFinite(data.population)) {
+            const popEl = entry.item.querySelector("p b")?.parentElement;
+            if (popEl) {
+                popEl.innerHTML =
+                    `<b>Population:</b> ${Math.round(data.population).toLocaleString()}`;
+            }
+        }
+    }
+});
+
+
+
+
 
 
 // Sidebar Functionality //
@@ -820,7 +879,7 @@ deleteAllBtn.addEventListener("click", (e) => {
 
     if (shapes.size === 0) return;
 
-    closeAllDeleteConfirms(); // reuse existing helper
+    closeAllDeleteConfirms();
     deleteAllConfirm.classList.add("show");
 });
 
@@ -839,12 +898,6 @@ deleteAllYes.addEventListener("click", (e) => {
     deleteAllConfirm.classList.remove("show");
 });
 
-deleteAllBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-
-    closeAllDeleteConfirms();
-    deleteAllConfirm.classList.add("show");
-});
 
 deleteAllConfirm.addEventListener("click", (e) => {
     e.stopPropagation();
