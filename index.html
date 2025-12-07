@@ -94,9 +94,28 @@
 
                                 <!-- A) GLOBAL ACTIONS BAR -->
                                 <div class="settings-actions">
-                                    <button class="settings-btn danger">DELETE ALL SHAPES</button>
-                                    <button class="settings-btn">RESET MAP</button>
-                                    <button class="settings-btn">RESET ALL SETTINGS</button>
+                                    <div class="settings-action">
+                                        <button class="settings-btn danger delete-all-btn">
+                                            Delete All Shapes
+                                        </button>
+
+                                        <div class="delete-confirm delete-all-confirm">
+                                            <span>Are you sure?</span>
+                                            <button class="confirm-yes">✓</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="settings-action">
+                                        <button class="settings-btn reset-map-btn">
+                                            Reset Map Position
+                                        </button>
+                                    </div>
+
+                                    <div class="settings-action">
+                                        <button class="settings-btn reset-settings-btn">
+                                            Reset All Settings
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- B) CORE SETTINGS AREA -->
@@ -154,12 +173,12 @@
 
                                             <div class="radio-group">
                                                 <label class="radio-option">
-                                                    <input type="radio" name="unlockShapes" value="off" checked>
+                                                    <input type="radio" name="unlockShapes" value="true">
                                                     Enabled
                                                 </label>
 
                                                 <label class="radio-option">
-                                                    <input type="radio" name="unlockShapes" value="on">
+                                                    <input type="radio" name="unlockShapes" value="false" checked>
                                                     Disabled
                                                 </label>
                                             </div>
@@ -171,12 +190,12 @@
 
                                             <div class="radio-group">
                                                 <label class="radio-option">
-                                                    <input type="radio" name="confirmDelete" value="yes" checked>
+                                                    <input type="radio" name="confirmDelete" value="true">
                                                     Enabled
                                                 </label>
 
                                                 <label class="radio-option">
-                                                    <input type="radio" name="confirmDelete" value="no">
+                                                    <input type="radio" name="confirmDelete" value="false" checked>
                                                     Disabled
                                                 </label>
                                             </div>

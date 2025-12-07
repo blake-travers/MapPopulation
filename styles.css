@@ -453,8 +453,18 @@ html,body
     flex-shrink: 0;
 }
 
-.settings-actions .settings-btn {
+.settings-actions > * {
     flex: 1 1 0;
+    display: flex;
+    justify-content: center;
+}
+
+.settings-delete-all {
+    position: relative;
+}
+
+.settings-delete-all .settings-btn {
+    width: 100%;
     justify-content: center;
 }
 
@@ -487,7 +497,7 @@ html,body
 
 .settings-btn {
     background: var(--color-bg);
-    border: 2px solid var(--color-bg-border);
+    border: 2px solid #d6d6d6;
     border-radius: 4px;
     padding: 6px 12px;
     cursor: pointer;
@@ -497,6 +507,7 @@ html,body
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    justify-content: center;
 }
 
 .settings-btn:hover {
@@ -631,38 +642,39 @@ html,body
 
 /* CARTO Voyager preview */
 .map-preview.vector1 {
-    background-image: url("https://a.basemaps.cartocdn.com/rastertiles/voyager/3/4/2.png");
+    background-image: url("https://a.basemaps.cartocdn.com/rastertiles/voyager/5/17/11.png");
     background-size: cover;
     background-position: center;
 }
 
 /* OpenStreetMap preview */
 .map-preview.vector2 {
-    background-image: url("https://a.tile.openstreetmap.org/3/4/2.png");
+    background-image: url("https://a.tile.openstreetmap.org/5/17/11.png");
     background-size: cover;
     background-position: center;
 }
 
 /* Satellite (ESRI World Imagery) */
 .map-preview.satellite {
-    background-image: url("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/3/2/4");
+    background-image: url("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/5/11/17");
     background-size: cover;
     background-position: center;
 }
 
 /* Terrain (ESRI Topographic) */
 .map-preview.terrain {
-    background-image: url("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/3/2/4");
+    background-image: url("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/5/11/17");
     background-size: cover;
     background-position: center;
 }
 
 /* Dark (CARTO Dark Matter) */
 .map-preview.dark {
-    background-image: url("https://a.basemaps.cartocdn.com/dark_all/3/4/2.png");
+    background-image: url("https://a.basemaps.cartocdn.com/dark_all/5/17/11.png");
     background-size: cover;
     background-position: center;
 }
+
 
 
 /* Active state highlight */
@@ -670,3 +682,24 @@ html,body
     outline: 2px solid var(--color-bg-border);
     outline-offset: 1px;
 }
+
+
+.settings-delete-all {
+    display: flex;
+    flex: 1 1 0;
+}
+
+.settings-action .delete-confirm {
+    top: 36px;
+}
+
+.settings-action {
+    flex: 1 1 0;
+    display: flex;
+    position: relative;
+}
+
+.settings-action .settings-btn {
+    width: 100%;
+}
+

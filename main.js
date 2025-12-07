@@ -6,6 +6,14 @@ let sidebarOpen = true;
 toggleBtn.textContent = '▶';
 const SIDEBAR_WIDTH = '30%';
 
+const deleteAllBtn = document.querySelector(".delete-all-btn");
+const deleteAllConfirm = document.querySelector(".delete-all-confirm");
+const deleteAllYes = deleteAllConfirm.querySelector(".confirm-yes");
+
+const resetMapBtn = document.querySelector(".reset-map-btn");
+
+const resetSettingsBtn = document.querySelector(".reset-settings-btn");
+
 const shapes = new Map();
 let shapeCounter = 1;
 let currentAreaUnit = "km2";
@@ -182,6 +190,17 @@ function refreshAllAreas() {
     });
 }
 
+const DEFAULT_SETTINGS = {calcMode: "fast", mapType: "vector_carto", units: "km2", shapePanning: false, confirmDelete: false};
+
+let confirmDeleteEnabled = DEFAULT_SETTINGS.confirmDelete;
+
+// ===== Confirm Delete Setting =====
+document.querySelectorAll('input[name="confirmDelete"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+        confirmDeleteEnabled = radio.value === "true";
+    });
+});
+
 const COLOR_PALETTE =
 [
     "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
@@ -210,13 +229,16 @@ function getNextColor()
 
 function closeAllDeleteConfirms()
 {
-    document.querySelectorAll(".delete-confirm.show")
+    document
+        .querySelectorAll(".delete-confirm.show")
         .forEach(el => el.classList.remove("show"));
 
 }
 
+
 // Initialize map
-const map = L.map('map', {minZoom: 3, maxZoom: 16}).setView([-38, 145.2631], 10);
+const DEFAULT_MAP_VIEW = {center: [-38, 145.2631], zoom: 10};
+const map = L.map('map', {minZoom: 3, maxZoom: 16}).setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
 
 // Layer options
 const baseLayers = {
@@ -275,7 +297,12 @@ map.addLayer(drawnItems);
 const drawControl = new L.Control.Draw
 (
     {
-        edit: false,
+        edit:
+        {
+            featureGroup: drawnItems,
+            edit: true,
+            remove: false
+        },
         draw:
         {
             polygon: true,  
@@ -437,7 +464,15 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
             closeAllDeleteConfirms();
 
-            confirmBox.classList.add("show");
+            if (confirmDeleteEnabled) {
+                confirmBox.classList.add("show");
+            } else {
+                // Immediate delete (no confirm)
+                drawnItems.removeLayer(layer);
+                item.remove();
+                shapes.delete(id);
+                updateEmptyState();
+            }
         });
 
         confirmYes.addEventListener("click", (e) => {
@@ -736,6 +771,92 @@ document.querySelectorAll('input[name="units"]').forEach(radio => {
         refreshAllAreas();
     });
 });
+
+resetMapBtn.addEventListener("click", () => {
+    // Reset view
+    map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
+
+    // Reset basemap
+    map.removeLayer(currentBaseLayer);
+    currentBaseLayer = baseLayers.vector_carto;
+    currentBaseLayer.addTo(map);
+
+    // Sync radio UI
+    document.querySelector('input[name="mapType"][value="vector_carto"]').checked = true;
+});
+
+resetSettingsBtn.addEventListener("click", () => {
+    // --- Calculation mode ---
+    document.querySelector(
+        `input[name="calcMode"][value="${DEFAULT_SETTINGS.calcMode}"]`
+    ).checked = true;
+
+    // --- Units ---
+    currentAreaUnit = DEFAULT_SETTINGS.units;
+    document.querySelector(
+        `input[name="units"][value="${DEFAULT_SETTINGS.units}"]`
+    ).checked = true;
+    refreshAllAreas();
+
+    // --- Map type ---
+    map.removeLayer(currentBaseLayer);
+    currentBaseLayer = baseLayers[DEFAULT_SETTINGS.mapType];
+    currentBaseLayer.addTo(map);
+    document.querySelector(
+        `input[name="mapType"][value="${DEFAULT_SETTINGS.mapType}"]`
+    ).checked = true;
+    document.querySelector(
+        `input[name="unlockShapes"][value="${DEFAULT_SETTINGS.shapePanning}"]`
+        ).checked = true;
+    document.querySelector(
+        `input[name="confirmDelete"][value="${DEFAULT_SETTINGS.confirmDelete}"]`
+    ).checked = true;
+
+    confirmDeleteEnabled = DEFAULT_SETTINGS.confirmDelete;
+});
+
+deleteAllBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    if (shapes.size === 0) return;
+
+    closeAllDeleteConfirms(); // reuse existing helper
+    deleteAllConfirm.classList.add("show");
+});
+
+deleteAllYes.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    shapes.forEach(({ layer }) => {
+        drawnItems.removeLayer(layer);
+    });
+
+    shapes.clear();
+    document.getElementById("shapeList").innerHTML = "";
+    shapeCounter = 1;
+
+    updateEmptyState();
+    deleteAllConfirm.classList.remove("show");
+});
+
+deleteAllBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    closeAllDeleteConfirms();
+    deleteAllConfirm.classList.add("show");
+});
+
+deleteAllConfirm.addEventListener("click", (e) => {
+    e.stopPropagation();
+});
+
+const settingsActions = document.querySelector(".settings-actions");
+
+settingsActions.addEventListener("mouseleave", () => {
+    deleteAllConfirm.classList.remove("show");
+});
+
+
 
 
 // TODO Frontend: Magnifying glass for every shape - auto pan
