@@ -46,7 +46,7 @@ def lambda_handler(event, context):
 
         result = agg.aggregate_polygon(polygon_geojson=polygon,speed=speed)
 
-        lambda_time_ms = (time.time() - start_time) * 1000
+        lambda_time_ms = ((time.time() - start_time) * 1000) - result["duration"]["algorithm_time"]["total_ms"]
 
         result["duration"]["lambda_time_ms"] = int(lambda_time_ms)
 

@@ -125,7 +125,7 @@ class COGAggregatorGDAL:
 
         result = {
             "result": {
-                "population": total
+                "population": round(total, 3)
             },
             "duration": {
                 "algorithm_time": {
@@ -142,18 +142,18 @@ class COGAggregatorGDAL:
                     "xmax": pxmax,
                     "ymax": pymax
                 },
-                "angular_span_deg": self.angular_span,
-                "perimeter_deg": self.perimeter,
-                "complexity": self.complexity
+                "angular_span_deg": round(self.angular_span, 5),
+                "perimeter_deg": round(self.perimeter, 5),
+                "complexity": round(self.complexity, 5),
             },
             "resolution": {
                 "speed": speed,
                 "scheme_tile_size_deg": self.tile_size,
                 "bucket": self.bucket_name,
                 "custom_max_depth": self.custom_max_depth,
-                "highest_resolution_degrees": self.resolution_degrees,
-                "highest_resolution_minutes": self.resolution_degrees * 60,
-                "highest_resolution_seconds": self.resolution_degrees * 3600
+                "highest_resolution_degrees": round(self.resolution_degrees, 5),
+                "highest_resolution_minutes": round(self.resolution_degrees * 60, 4),
+                "highest_resolution_seconds": round(self.resolution_degrees * 3600, 2),
             },
             "quadtree": {
                 "nodes_visited": self.breadth,
@@ -162,7 +162,7 @@ class COGAggregatorGDAL:
                 "full_nodes": self.full_nodes,
                 "empty_nodes": self.empty_nodes,
                 "partial_nodes": self.partial_nodes,
-                "partial_ratio": self.partial_ratio,
+                "partial_ratio": round(self.partial_ratio, 5),
                 "recursed_nodes": self.recursed_nodes
             },
             "uncertainty": {
