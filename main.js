@@ -238,7 +238,7 @@ function closeAllDeleteConfirms()
 
 // Initialize map
 const DEFAULT_MAP_VIEW = {center: [-38, 145.2631], zoom: 10};
-const map = L.map('map', {minZoom: 3, maxZoom: 16}).setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
+const map = L.map('map', {minZoom: 3, maxZoom: 17}).setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
 
 // Layer options
 const baseLayers = {
@@ -376,9 +376,8 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         fillOpacity: 0.2
     });
 
+
     drawnItems.addLayer(layer);
-
-
 
     const rawGeom = layer.toGeoJSON().geometry;
     const safeGeom = normalisePolygonGeometry(rawGeom);
@@ -611,10 +610,6 @@ map.on(L.Draw.Event.EDITED, async (e) => {
         }
     }
 });
-
-
-
-
 
 
 // Sidebar Functionality //

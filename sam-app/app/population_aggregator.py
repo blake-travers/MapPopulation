@@ -53,6 +53,11 @@ class COGAggregatorGDAL:
         self.scales = None
         self.max_depth = None
 
+        self.full_nodes = 0
+        self.partial_nodes = 0
+        self.recursed_nodes = 0
+        self.empty_nodes = 0
+
         #print(f"|  Bucket: {self.bucket_name}, Polygon Area: {area_km2:.2f} km²")
 
         start_time = time.time()
@@ -77,8 +82,11 @@ class COGAggregatorGDAL:
                 candidate_tiles2.append(((lon1, lat1, lon2, lat2), key))
 
         # ---- For all other tiles, start running recursive algorithm ----
-        start_time = time.time()
+        total_open = 0
+        total_process = 0
+        tiles_processed = 0
         for (lon1, lat1, lon2, lat2), key in candidate_tiles2:
+            tiles_processed += 1
             t0 = time.time()
 
             url = self._build_url(key)
@@ -91,12 +99,14 @@ class COGAggregatorGDAL:
                 self.custom_max_depth = min(self.custom_max_depth, self.max_depth)
 
             t_open = time.time() - t0
+            total_open += t_open
             t1 = time.time()
 
             tile_bbox = (lon1, lat1, lon2, lat2)
             tile_pop = self._process_quadtree_node(ds=ds, bbox=tile_bbox, depth=0)
 
             t_proc = time.time() - t1
+            total_process += t_proc
 
             total += tile_pop
 
@@ -109,8 +119,74 @@ class COGAggregatorGDAL:
         print(f"|  Number of Reads: {self.num_reads}")
         print(f"|  Time taken = {int((time.time()-start_time) * 1000)} ms\n")
 
-        return total, self.breadth#, area_km2
-    
+        total_time = time.time() - start_time
+        self.resolution_degrees = self.tile_size / (2 ** self.custom_max_depth)
+        algorithmic_uncertainty, dataset_uncertainty = self.calculate_uncertainty()
+
+        result = {
+            "result": {
+                "population": total
+            },
+            "duration": {
+                "algorithm_time": {
+                    "total_ms": int(total_time * 1000),
+                    "open_ms": int(total_open * 1000),
+                    "process_ms": int(total_process * 1000)
+                },
+                "lambda_time_ms": None
+            },
+            "geometry": {
+                "bounding_box": {
+                    "xmin": pxmin,
+                    "ymin": pymin,
+                    "xmax": pxmax,
+                    "ymax": pymax
+                },
+                "angular_span_deg": self.angular_span,
+                "perimeter_deg": self.perimeter,
+                "complexity": self.complexity
+            },
+            "resolution": {
+                "speed": speed,
+                "scheme_tile_size_deg": self.tile_size,
+                "bucket": self.bucket_name,
+                "custom_max_depth": self.custom_max_depth,
+                "highest_resolution_degrees": self.resolution_degrees,
+                "highest_resolution_minutes": self.resolution_degrees * 60,
+                "highest_resolution_seconds": self.resolution_degrees * 3600
+            },
+            "quadtree": {
+                "nodes_visited": self.breadth,
+                "nodes_read": self.num_reads,
+                "theoretical_max_possible_nodes": sum(4 ** d for d in range(self.custom_max_depth + 1)),
+                "full_nodes": self.full_nodes,
+                "empty_nodes": self.empty_nodes,
+                "partial_nodes": self.partial_nodes,
+                "partial_ratio": self.partial_ratio,
+                "recursed_nodes": self.recursed_nodes
+            },
+            "uncertainty": {
+                "algorithmic_uncertainty_pct": algorithmic_uncertainty,
+                "algorithmic_confidence_pct": 95,
+                "estimated_dataset_uncertainty_pct": dataset_uncertainty,
+                "estimated_dataset_uncertainty_note": "Coarse, Jury-rig uncertainty estimate based exclusively on area and shape.."
+            },
+
+            "diagnostics": {
+                "warnings": None
+            }
+        }
+        return result
+
+    """
+                "data": {
+                    "coordinate_system": "EPSG:4326",
+                    "year": 2023,
+                    "citation": "(*) Source: Pesaresi, M., Schiavina, M., Politis, P., Freire, S., Krasnodębska, K., Uhl, J. H., … Kemper, T. (2024). Advances on the Global Human Settlement Layer by joint assessment of Earth Observation and population survey data. International Journal of Digital Earth, 17(1).",
+                    "dataset": "Schiavina, Marcello; Freire, Sergio; Alessandra Carioli; MacManus, Kytt (2023): GHS-POP R2023A - GHS population grid multitemporal (1975-2030). European Commission, Joint Research Centre (JRC) [Dataset] doi: 10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE PID: http://data.europa.eu/89h/2ff68a52-5b5b-4a22-8f40-c41da8332cfe",
+                    "dataset methodology": "Pesaresi, Martino, Marcello Schiavina, Panagiotis Politis, Sergio Freire, Katarzyna Krasnodębska, Johannes H. Uhl, Alessandra Carioli, et al. (2024). Advances on the Global Human Settlement Layer by Joint Assessment of Earth Observation and Population Survey Data. International Journal of Digital Earth 17 (1). doi:10.1080/17538947.2024.2390454"
+                },
+    """
 
     def _generate_grid(self, tile_size: int):
         """
@@ -157,40 +233,42 @@ class COGAggregatorGDAL:
             scheme (dict), depth (int)
         """
 
-        angular_span = max(pxmax - pxmin, pymax - pymin)
-        perimeter = self.polygon.length
+        self.angular_span = max(pxmax - pxmin, pymax - pymin)
+        self.perimeter = self.polygon.length
 
         # ---- Shape complexity ----
-        BASE_SPAN = 90.0
+        BASE_SPAN = 90
         SHAPE_CONSTANT = 0.5
+        COMPLEXITY_CONSTANT = 1.5
 
-        extra_perimeter = max(0.0, perimeter - 4 * angular_span)
+        extra_perimeter = max(0.0, self.perimeter - 4 * self.angular_span)
 
-        complexity_span = angular_span + SHAPE_CONSTANT * extra_perimeter
-        complexity = math.log(complexity_span / BASE_SPAN, 4)
+        complexity_span = self.angular_span + SHAPE_CONSTANT * extra_perimeter
+        self.complexity = COMPLEXITY_CONSTANT * (math.log(complexity_span / BASE_SPAN, 4))
 
         # ---- Simple Scheme selection Heuristic ----
-        if angular_span > 40 or complexity_span > 180:
+        if self.angular_span > 35 or complexity_span > 180:
             scheme = self.schemes["large"]
         else:
             scheme = self.schemes["small"]
 
         # ---- Depth Speed selection ----
         if speed == "fast":
-            base_depth = 5
+            base_depth = 4
         else:
             base_depth = 9
 
         if scheme["tile_size"] == 180: # Account for scheme type
             base_depth += 2 #This is not 1:1 though... COG30 depth 0 = 30, COG180 depth 2 = 45.
 
-        depth = int(round(base_depth - complexity))
+        depth = int(round(base_depth - self.complexity))
         depth = max(3, depth)
 
         print(
-            f"|  Span={angular_span:.2f}°, "
-            f"Perimeter={perimeter:.2f}, "
-            f"Complexity={complexity:.2f}, "
+            f"|  Span={self.angular_span:.2f}°, "
+            f"Perimeter={self.perimeter:.2f}°, "
+            f"Extra Perimeter={extra_perimeter:.2f}, "
+            f"Complexity={self.complexity:.2f}, "
             f"Scheme={scheme['tile_size']}°, "
             f"Depth={depth}"
         )
@@ -330,6 +408,7 @@ class COGAggregatorGDAL:
 
         #1. If this node does not intersect the shape
         if not self.polygon.intersects(tile_bounds):
+            self.empty_nodes += 1
             return 0.0
 
         #2. If this node is entirely inside the shape
@@ -337,6 +416,8 @@ class COGAggregatorGDAL:
 
             data = self._read_data_gdal(ds, depth, bbox)
             total = float(np.sum(data, where=(data > 0)))
+
+            self.full_nodes += 1
             return total
 
         #3.If this node is partially inside the shape
@@ -348,6 +429,7 @@ class COGAggregatorGDAL:
             intersection_area = tile_bounds.intersection(self.polygon).area
             proportion = intersection_area / tile_bounds.area if tile_bounds.area > 0 else 0.0
 
+            self.partial_nodes += 1
             return total * proportion
             
         else:
@@ -375,6 +457,7 @@ class COGAggregatorGDAL:
             for child_bbox in quadrants:
                 total += self._process_quadtree_node(ds=ds,bbox=child_bbox,depth=depth + 1)
 
+            self.recursed_nodes += 1
             return total
             
     """
@@ -396,6 +479,45 @@ class COGAggregatorGDAL:
 
         return area_km2
     """
+
+    def calculate_uncertainty(self):
+        """
+        Calculate both Algorithmic and Estimated Dataset Uncertainty based upon factors calculated during the aggregation process
+        
+        """
+        if self.full_nodes + self.partial_nodes > 0: #Edge case check
+            self.partial_ratio = self.partial_nodes / (self.full_nodes + self.partial_nodes)
+        else:
+            self.partial_ratio = 0.0
+
+        #Number of cells throughout highest calculated resolution
+        cells_across_span = max(1.0, self.angular_span / self.resolution_degrees)
+
+        granularity_factor = min(1.0, 10.0 / cells_across_span)
+        sigma_pct = self.partial_ratio * granularity_factor * 2.0
+
+        confidence_95 = 1.96 * sigma_pct
+        confidence_95 = round(min(max(confidence_95, 0.01), 5.0), 3)
+
+
+        pxmin, pymin, pxmax, pymax = self.polygon.bounds
+        width = max(0.0, pxmax - pxmin)
+        height = max(0.0, pymax - pymin)
+
+        logA = math.log10(max(width * height, 1e-8))
+
+        a1, b1 = 5, -1.1   # lower bound
+        a2, b2 = 10, -2   # upper bound
+
+        low = a1 + b1 * logA
+        high = a2 + b2 * logA
+
+        low = max(0.1, min(low, 25.0))
+        high = max(low+0.1, min(high, 25.0))
+
+        return confidence_95, [round(low, 1), round(high, 1)]
+    
+
 
 
 def test_polygons():
@@ -419,39 +541,11 @@ def test_polygons():
     for name, polygon, depth in example_polygons:
         print(f"Testing: {name} at depth {depth}")
         
-        start = time.time()
-        try:
-            pop, breadth = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
+        results = agg.aggregate_polygon(polygon_geojson=polygon, speed = depth)
+        print(f"{results} \n")
 
-            dt = time.time() - start
-
-
-            results.append({
-                "name": name,
-                "population": pop,
-                #"area_km2": area,
-                "time": dt,
-                "depth": depth
-            })
-
-        except Exception as e:
-            print(f"  ERROR: {e}\n")
-
-            results.append({
-                "name": name,
-                "population": None,
-                #"area_km2": None,
-                "depth": depth,
-                "status": "error",
-                "error": str(e)
-            })
-
-    #print("--- All tests completed ---")
-    return results
+    print("--- All tests completed ---")
 
 if __name__ == "__main__":
     #test_GDAL_Cloudfare()
-    results = test_polygons()
-    print(results)
-
-#177362732032.dkr.ecr.ap-southeast-4.amazonaws.com/gdal-lambda
+    test_polygons()

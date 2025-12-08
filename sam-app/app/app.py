@@ -44,9 +44,11 @@ def lambda_handler(event, context):
     try:
         agg = COGAggregatorGDAL()
 
-        population, breadth = agg.aggregate_polygon(polygon_geojson=polygon,speed=speed)
+        result = agg.aggregate_polygon(polygon_geojson=polygon,speed=speed)
 
-        dt = (time.time() - start_time) * 1000
+        lambda_time_ms = (time.time() - start_time) * 1000
+
+        result["duration"]["lambda_time_ms"] = int(lambda_time_ms)
 
     except Exception as e:
         return {
@@ -69,10 +71,6 @@ def lambda_handler(event, context):
             "Access-Control-Allow-Origin": "*"
         },
         "body": json.dumps({
-            "population": population,
-            "breadth": breadth,
-            #"area_km2": area,
-            "speed": speed,
-            "time": int(dt)
+            "result": result
         })
     }
