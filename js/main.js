@@ -1,18 +1,4 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// TODO Frontend: Magnifying glass for every shape - auto pan
+import "./state.js";
+import "./map.js";
+import "./utilities.js";    
+import "./sidebar.js";

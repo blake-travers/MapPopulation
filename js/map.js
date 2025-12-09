@@ -1,3 +1,7 @@
+import { state } from "./state.js";
+
+import { formatArea, updateEmptyState, closeAllDeleteConfirms } from "./sidebar.js";
+
 async function addSampleShapes() {
     const samples = [
         {
@@ -239,7 +243,7 @@ function normalisePolygonGeometry(geometry) {
 // Map + AWS Lambda Functionality //
 map.on(L.Draw.Event.CREATED, async function (event) {
     const layer = event.layer;
-    const id = shapeCounter++;
+    const id = state.shapeCounter++;
     const color = getNextColor();
 
     layer.setStyle({
@@ -271,16 +275,17 @@ map.on(L.Draw.Event.CREATED, async function (event) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     polygon: safeGeom,
-                    speed: document.querySelector(
-                        'input[name="calcMode"]:checked'
-                    ).value
+                    speed: state.settings.calcMode
                 })
             }
         );
 
         const data = await response.json();
+        console.log("Lambda response:", data);
 
-        const valid = Number.isFinite(data.population);
+        const population = data.result.result.population;
+        const timems = data.result.duration.algorithm_time.total_ms;
+        const valid = Number.isFinite(population);
 
         // --- Create sidebar dropdown ---
         const item = document.createElement("div");
@@ -304,19 +309,15 @@ map.on(L.Draw.Event.CREATED, async function (event) {
             ${
                 valid
                 ? `
-                    <p><b>Population:</b> ${Math.round(data.population).toLocaleString()}</p>
+                    <p><b>Population:</b> ${Math.round(population).toLocaleString()}</p>
 
                     <p class="shape-area">
                         <b>Area:</b>
-                        <span class="area-value">
-                            ${formattedArea.value.toLocaleString(undefined, {
-                                maximumFractionDigits: 2
-                            })}
-                        </span>
-                        <span class="area-unit">${formattedArea.unit}</span>
+                        <span class="area-value">-</span>
+                        <span class="area-unit"></span>
                     </p>
 
-                    <p><b>Time:</b> ${data.time} ms</p>
+                    <p><b>Time:</b> ${timems} ms</p>
                 `
                 : `
                     <p style="color:#b00000; font-weight:500;">
@@ -337,13 +338,13 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
             closeAllDeleteConfirms();
 
-            if (confirmDeleteEnabled) {
+            if (state.settings.confirmDelete) {
                 confirmBox.classList.add("show");
             } else {
                 // Immediate delete (no confirm)
                 drawnItems.removeLayer(layer);
                 item.remove();
-                shapes.delete(id);
+                state.shapes.delete(id);
                 updateEmptyState();
             }
         });
@@ -351,27 +352,25 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         confirmYes.addEventListener("click", (e) => {
             e.stopPropagation();
 
-            // remove polygon
-            drawnItems.removeLayer(layer);
-
-            // remove sidebar card
-            item.remove();
-
-            // clean state
-            shapes.delete(id);
-        });
-
-        confirmYes.addEventListener("click", (e) => {
-            e.stopPropagation();
-
             drawnItems.removeLayer(layer);
             item.remove();
-            shapes.delete(id);
+            state.shapes.delete(id);
 
             updateEmptyState();
         });
 
         document.getElementById("shapeList").appendChild(item);
+
+        const areaValueEl = item.querySelector(".area-value");
+        const areaUnitEl  = item.querySelector(".area-unit");
+
+        if (areaValueEl && areaUnitEl) {
+            const formatted = formatArea(area_m2);
+            areaValueEl.textContent = formatted.value.toLocaleString(undefined, {
+                maximumFractionDigits: 2
+            });
+            areaUnitEl.textContent = formatted.unit;
+        }
 
         // Auto-scroll to bottom
         const panels = document.querySelector(".sidebar-panels");
@@ -380,7 +379,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
             behavior: "smooth"
         });
 
-        shapes.set(id, {
+        state.shapes.set(id, {
             layer,
             item,
             area_m2
@@ -436,7 +435,7 @@ map.on(L.Draw.Event.EDITED, async (e) => {
     for (const layer of Object.values(e.layers._layers)) {
 
         let entry = null;
-        for (const [, e] of shapes) {
+        for (const [, e] of state.shapes) {
             if (e.layer === layer) {
                 entry = e;
                 break;
@@ -465,19 +464,19 @@ map.on(L.Draw.Event.EDITED, async (e) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     polygon: safeGeom,
-                    speed: document.querySelector(
-                        'input[name="calcMode"]:checked'
-                    ).value
+                    speed: state.settings.calcMode
                 })
             }
         );
 
         const data = await response.json();
-        if (Number.isFinite(data.population)) {
+        const population = data?.result?.population;
+
+        if (Number.isFinite(population)) {
             const popEl = entry.item.querySelector("p b")?.parentElement;
             if (popEl) {
                 popEl.innerHTML =
-                    `<b>Population:</b> ${Math.round(data.population).toLocaleString()}`;
+                    `<b>Population:</b> ${Math.round(population).toLocaleString()}`;
             }
         }
     }
@@ -496,10 +495,21 @@ document.querySelectorAll('input[name="mapType"]').forEach(radio => {
         if (!baseLayers[selected]) return;
 
         // Remove old base layer
-        map.removeLayer(currentBaseLayer);
+        map.removeLayer(mapState.currentBaseLayer);
 
         // Add new base layer
-        currentBaseLayer = baseLayers[selected];
-        currentBaseLayer.addTo(map);
+        mapState.currentBaseLayer = baseLayers[selected];
+        mapState.currentBaseLayer.addTo(map);
     });
 });
+
+export {
+    map,
+    DEFAULT_MAP_VIEW,
+    baseLayers,
+    drawnItems
+};
+
+export const mapState = {
+    currentBaseLayer: baseLayers.vector_carto
+};

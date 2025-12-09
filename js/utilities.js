@@ -1,3 +1,6 @@
+import { state } from "./state.js";
+import { map } from "./map.js";
+
 // Search Functionality //
 
 async function searchLocation(query)

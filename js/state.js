@@ -2,7 +2,16 @@ const shapes = new Map();
 let shapeCounter = 1;
 let currentAreaUnit = "km2";
 
-const DEFAULT_SETTINGS = {calcMode: "fast", mapType: "vector_carto", units: "km2", shapePanning: false, confirmDelete: false};
+export const DEFAULT_SETTINGS = {
+    calcMode: "fast",
+    mapType: "vector_carto",
+    areaUnit: "km2",
+    confirmDelete: false
+};
 
-let confirmDeleteEnabled = DEFAULT_SETTINGS.confirmDelete;
+export const state = {
+    shapes: new Map(),
+    shapeCounter: 1,
+    settings: { ...DEFAULT_SETTINGS }
+};
 

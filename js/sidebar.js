@@ -1,8 +1,19 @@
+import { state, DEFAULT_SETTINGS } from "./state.js";
+
+import {
+    map,
+    DEFAULT_MAP_VIEW,
+    baseLayers,
+    drawnItems,
+    mapState
+} from "./map.js";
+
+
+
 // DOM references
 const sidebar = document.getElementById('sidebar');
 const mapDiv = document.getElementById('map');
 const toggleBtn = document.getElementById('sidebarButton');
-let sidebarOpen = true;
 toggleBtn.textContent = '▶';
 const SIDEBAR_WIDTH = '30%';
 
@@ -46,8 +57,8 @@ tabButtons.forEach(tabBtn => {
 const emptyState = document.getElementById("emptyState");
 const shapeList = document.getElementById("shapeList");
 
-function updateEmptyState() {
-    if (shapes.size === 0) {
+export function updateEmptyState() {
+    if (state.shapes.size === 0) {
         emptyState.style.display = "block";
         shapeList.style.display = "none";
     } else {
@@ -58,8 +69,8 @@ function updateEmptyState() {
 
 updateEmptyState();
 
-function formatArea(area_m2) {
-    switch (currentAreaUnit) {
+export function formatArea(area_m2) {
+    switch (state.settings.areaUnit) {
         case "ha":
             return {
                 value: area_m2 / 10_000,
@@ -83,7 +94,7 @@ function formatArea(area_m2) {
 
 
 function refreshAllAreas() {
-    shapes.forEach(({ item, area_m2 }) => {
+    state.shapes.forEach(({ item, area_m2 }) => {
         const formatted = formatArea(area_m2);
 
         const valueEl = item.querySelector(".area-value");
@@ -101,11 +112,11 @@ function refreshAllAreas() {
 // ===== Confirm Delete Setting =====
 document.querySelectorAll('input[name="confirmDelete"]').forEach(radio => {
     radio.addEventListener("change", () => {
-        confirmDeleteEnabled = radio.value === "true";
+        state.settings.confirmDelete = radio.value === "true";
     });
 });
 
-function closeAllDeleteConfirms()
+export function closeAllDeleteConfirms()
 {
     document
         .querySelectorAll(".delete-confirm.show")
@@ -113,13 +124,35 @@ function closeAllDeleteConfirms()
 
 }
 
-// Sidebar Functionality //
+// Sidebar Functionality //\
+
+// Start closed
 
 sidebar.style.transition = 'none';
 toggleBtn.style.transition = 'none';
 
-sidebar.style.width = SIDEBAR_WIDTH;
-toggleBtn.style.right = SIDEBAR_WIDTH;
+sidebar.style.width = '0';
+sidebar.setAttribute('aria-hidden', 'true');
+
+toggleBtn.style.right = '0';
+toggleBtn.textContent = '◀';
+
+let sidebarOpen = false;
+
+//next frame, open sidebar without transitions
+requestAnimationFrame(() => {
+    sidebar.style.width = SIDEBAR_WIDTH;
+    sidebar.setAttribute('aria-hidden', 'false');
+
+    toggleBtn.style.right = SIDEBAR_WIDTH;
+    toggleBtn.textContent = '▶';
+
+    sidebarOpen = true;
+    requestAnimationFrame(() => { //third frame, we re-enable transitions
+        sidebar.style.transition = '';
+        toggleBtn.style.transition = '';
+    });
+});
 
 toggleBtn.addEventListener('click', () =>
 {
@@ -143,6 +176,7 @@ toggleBtn.addEventListener('click', () =>
     toggleBtn.style.right = sidebarOpen ? SIDEBAR_WIDTH : '0';
     toggleBtn.textContent = sidebarOpen ? '▶' : '◀';
 
+
 });
 
 // Escape Key functionality //
@@ -155,7 +189,7 @@ document.addEventListener("keydown", (e) => {
 
 document.querySelectorAll('input[name="units"]').forEach(radio => {
     radio.addEventListener('change', () => {
-        currentAreaUnit = radio.value;
+        state.settings.areaUnit = radio.value;
         refreshAllAreas();
     });
 });
@@ -163,75 +197,76 @@ document.querySelectorAll('input[name="units"]').forEach(radio => {
 resetMapBtn.addEventListener("click", () => {
     // Reset view
     map.setView(DEFAULT_MAP_VIEW.center, DEFAULT_MAP_VIEW.zoom);
-
-    // Reset basemap
-    map.removeLayer(currentBaseLayer);
-    currentBaseLayer = baseLayers.vector_carto;
-    currentBaseLayer.addTo(map);
-
-    // Sync radio UI
-    document.querySelector('input[name="mapType"][value="vector_carto"]').checked = true;
 });
 
 resetSettingsBtn.addEventListener("click", () => {
-    // --- Calculation mode ---
+
+    // ---- Reset STATE ----
+    Object.assign(state.settings, DEFAULT_SETTINGS);
+
+    // ---- Sync UI from state ----
     document.querySelector(
-        `input[name="calcMode"][value="${DEFAULT_SETTINGS.calcMode}"]`
+        `input[name="calcMode"][value="${state.settings.calcMode}"]`
     ).checked = true;
 
-    // --- Units ---
-    currentAreaUnit = DEFAULT_SETTINGS.units;
     document.querySelector(
-        `input[name="units"][value="${DEFAULT_SETTINGS.units}"]`
+        `input[name="units"][value="${state.settings.areaUnit}"]`
     ).checked = true;
+
+    document.querySelector(
+        `input[name="mapType"][value="${state.settings.mapType}"]`
+    ).checked = true;
+
+    document.querySelector(
+        `input[name="confirmDelete"][value="${state.settings.confirmDelete}"]`
+    ).checked = true;
+
+    // ---- Apply map effects ----
+    map.removeLayer(mapState.currentBaseLayer);
+    mapState.currentBaseLayer = baseLayers[state.settings.mapType];
+    mapState.currentBaseLayer.addTo(map);
+
+    // ---- Apply area effects ----
     refreshAllAreas();
-
-    // --- Map type ---
-    map.removeLayer(currentBaseLayer);
-    currentBaseLayer = baseLayers[DEFAULT_SETTINGS.mapType];
-    currentBaseLayer.addTo(map);
-    document.querySelector(
-        `input[name="mapType"][value="${DEFAULT_SETTINGS.mapType}"]`
-    ).checked = true;
-    document.querySelector(
-        `input[name="unlockShapes"][value="${DEFAULT_SETTINGS.shapePanning}"]`
-        ).checked = true;
-    document.querySelector(
-        `input[name="confirmDelete"][value="${DEFAULT_SETTINGS.confirmDelete}"]`
-    ).checked = true;
-
-    confirmDeleteEnabled = DEFAULT_SETTINGS.confirmDelete;
 });
 
 
-deleteAllBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
+if (deleteAllBtn) {
+    deleteAllBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
 
-    if (shapes.size === 0) return;
+        if (state.shapes.size === 0) return;
 
-    closeAllDeleteConfirms();
-    deleteAllConfirm.classList.add("show");
-});
+        closeAllDeleteConfirms();
+        deleteAllConfirm.classList.add("show");
+    });
+}
 
-deleteAllYes.addEventListener("click", (e) => {
-    e.stopPropagation();
+if (deleteAllYes) {
+    deleteAllYes.addEventListener("click", (e) => {
+        e.stopPropagation();
 
-    shapes.forEach(({ layer }) => {
-        drawnItems.removeLayer(layer);
+        state.shapes.forEach(({ layer }) => {
+            drawnItems.removeLayer(layer); //This is Not good practise - should change eventually
+        });
+
+        state.shapes.clear();
+        document.getElementById("shapeList").innerHTML = "";
+        state.shapeCounter = 1;
+
+        updateEmptyState();
+        deleteAllConfirm.classList.remove("show");
+    });
+}
+
+
+if (deleteAllConfirm) {
+    deleteAllConfirm.addEventListener("click", (e) => {
+        e.stopPropagation();
     });
 
-    shapes.clear();
-    document.getElementById("shapeList").innerHTML = "";
-    shapeCounter = 1;
+}
 
-    updateEmptyState();
-    deleteAllConfirm.classList.remove("show");
-});
-
-
-deleteAllConfirm.addEventListener("click", (e) => {
-    e.stopPropagation();
-});
 
 const settingsActions = document.querySelector(".settings-actions");
 
