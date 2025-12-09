@@ -132,24 +132,20 @@
                                                 <label class="radio-option">
                                                     <input type="radio" name="calcMode" value="fast" checked>
                                                     <span>Fast</span>
-                                                    <span class="info-icon">i</span>
+                                                    <span class="info-icon" data-info="Fast Mode sacrifices precision for speed - guaranteeing calculation times of no more than 0.5 seconds for all shapes. This works by sacrificing the maximum resolution the polygon is calculated at. <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
                                                 </label>
 
                                                 <label class="radio-option">
                                                     <input type="radio" name="calcMode" value="exact">
                                                     <span>Exact</span>
-                                                    <span class="info-icon">i</span>
+                                                    <span class="info-icon"  data-info="Exact Mode offers a precise calculation, trading reduced population uncertainty for an increased calculation time. Please leave up to 10 seconds to wait for the polygon to finish its calculations.  <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
                                                 </label>
                                             </div>
-
-                                            <p class="settings-help">
-                                                Fast mode prioritises speed over precision using reduced tile depth.
-                                            </p>
                                         </section>
 
                                         <!-- Units -->
                                         <section class="settings-section">
-                                            <h3>Units (Area)waawd</h3>
+                                            <h3>Units (Area)</h3>
 
                                             <div class="radio-group">
                                                 <label class="radio-option">
@@ -167,27 +163,30 @@
                                             </div>
                                         </section>
 
-                                        <!-- Confirm Delete -->
+                                        <!-- Confirm Delete + Debug Mode -->
                                         <section class="settings-section">
-                                            <h3>Confirm Delete</h3>
+                                            <h3>Options</h3>
 
-                                            <div class="radio-group">
-                                                <label class="radio-option">
-                                                    <input type="radio" name="confirmDelete" value="true">
-                                                    Enabled
+                                            <div class="checkbox-row">
+                                                <label class="checkbox-option">
+                                                    <input type="checkbox" id="confirmDeleteToggle">
+                                                    Confirm Delete
+                                                    <span class="info-icon"  data-info="Check this setting to require a second level of confirmation when deleting singular shapes.">i</span>
                                                 </label>
 
-                                                <label class="radio-option">
-                                                    <input type="radio" name="confirmDelete" value="false" checked>
-                                                    Disabled
+                                                <label class="checkbox-option">
+                                                    <input type="checkbox" id="debugModeToggle">
+                                                    Debug Info
+                                                    <span class="info-icon"  data-info="More information about the dimensions of each Polygon, the population calculations involved, and the results garnered.">i</span>
                                                 </label>
                                             </div>
                                         </section>
 
-                                        <label class="debug-toggle">
-                                            <input type="checkbox" id="debugModeToggle"> Debug Mode
-                                        </label>
-
+                                        <section class="settings-section info-panel">
+                                            <div id="infoPanelContent" class="info-panel-content">
+                                                <p class="placeholder">Hover over any <span class="info-icon small">i</span> icon to see its details here.</p>
+                                            </div>
+                                        </section>
                                     </div>
 
                                     <!-- RIGHT COLUMN -->

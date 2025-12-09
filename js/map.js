@@ -260,13 +260,8 @@ map.on(L.Draw.Event.CREATED, async function (event) {
     const rawGeom = layer.toGeoJSON().geometry;
     const safeGeom = normalisePolygonGeometry(rawGeom);
 
-    const area_m2 = turf.area({
-        type: "Feature",
-        geometry: safeGeom,
-        properties: {}
-    });
 
-    const formattedArea = formatArea(area_m2);
+    const area_m2 = turf.area({type: "Feature",geometry: safeGeom,properties: {}});
 
 
     try {
@@ -303,18 +298,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
         document.getElementById("shapeList").appendChild(item);
 
-        renderShapeUI(item, data, area_m2, state.settings.debugMode); //Render details through sidebar function
-
-        const areaValueEl = item.querySelector(".area-value");
-        const areaUnitEl  = item.querySelector(".area-unit");
-
-        if (areaValueEl && areaUnitEl) {
-            const formatted = formatArea(area_m2);
-            areaValueEl.textContent = formatted.value.toLocaleString(undefined, {
-                maximumFractionDigits: 2
-            });
-            areaUnitEl.textContent = formatted.unit;
-        }
+        renderShapeUI(item, data, area_m2); //Render details through sidebar function
 
         // Auto-scroll to bottom
         const panels = document.querySelector(".sidebar-panels");
@@ -409,15 +393,17 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 map.on(L.Draw.Event.EDITED, async (e) => {
     for (const layer of Object.values(e.layers._layers)) {
 
+        // 1. Find matching entry
         let entry = null;
-        for (const [, e] of state.shapes) {
-            if (e.layer === layer) {
-                entry = e;
+        for (const [, s] of state.shapes) {
+            if (s.layer === layer) {
+                entry = s;
                 break;
             }
         }
         if (!entry) continue;
 
+        // 2. Recalculate geometry + area
         const rawGeom = layer.toGeoJSON().geometry;
         const safeGeom = normalisePolygonGeometry(rawGeom);
 
@@ -425,13 +411,10 @@ map.on(L.Draw.Event.EDITED, async (e) => {
             type: "Feature",
             geometry: safeGeom
         });
-        entry.area_m2 = area_m2;
 
-        const formatted = formatArea(area_m2);
-        entry.item.querySelector(".area-value").textContent =
-            formatted.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        entry.item.querySelector(".area-unit").textContent = formatted.unit;
+        entry.area_m2 = area_m2; // keep stored value
 
+        // 3. Re-fetch population from Lambda
         const response = await fetch(
             "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
             {
@@ -445,17 +428,40 @@ map.on(L.Draw.Event.EDITED, async (e) => {
         );
 
         const data = await response.json();
-        const population = data?.result?.population;
+        entry.result = data;  // store updated result
 
-        if (Number.isFinite(population)) {
-            const popEl = entry.item.querySelector("p b")?.parentElement;
-            if (popEl) {
-                popEl.innerHTML =
-                    `<b>Population:</b> ${Math.round(population).toLocaleString()}`;
+        // 4. Re-render the card using ONE unified renderer
+        renderShapeUI(entry.item, entry.result, entry.area_m2);
+
+        // 5. Re-bind delete button (innerHTML wipes bindings)
+        const deleteBtn   = entry.item.querySelector(".shape-delete");
+        const confirmBox  = entry.item.querySelector(".delete-confirm");
+        const confirmYes  = entry.item.querySelector(".confirm-yes");
+
+        deleteBtn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            closeAllDeleteConfirms();
+
+            if (state.settings.confirmDelete) {
+                confirmBox.classList.add("show");
+            } else {
+                drawnItems.removeLayer(layer);
+                entry.item.remove();
+                state.shapes.delete(entry.id);
+                updateEmptyState();
             }
-        }
+        });
+
+        confirmYes.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            drawnItems.removeLayer(layer);
+            entry.item.remove();
+            state.shapes.delete(entry.id);
+            updateEmptyState();
+        });
     }
 });
+
 
 document.getElementById("addSampleShapesBtn")
     .addEventListener("click", () => {

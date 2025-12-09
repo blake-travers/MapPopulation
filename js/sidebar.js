@@ -92,28 +92,29 @@ export function formatArea(area_m2) {
     }
 }
 
+function refreshShapeArea(item, area_m2) {
+    const formatted = formatArea(area_m2);
+
+    const valueEl = item.querySelector(".area-value");
+    const unitEl  = item.querySelector(".area-unit");
+
+    if (!valueEl || !unitEl) return;
+
+    valueEl.textContent = formatted.value.toLocaleString(undefined, {
+        maximumFractionDigits: 2
+    });
+    unitEl.textContent = formatted.unit;
+}
 
 function refreshAllAreas() {
     state.shapes.forEach(({ item, area_m2 }) => {
-        const formatted = formatArea(area_m2);
-
-        const valueEl = item.querySelector(".area-value");
-        const unitEl  = item.querySelector(".area-unit");
-
-        if (!valueEl || !unitEl) return;
-
-        valueEl.textContent = formatted.value.toLocaleString(undefined, {
-            maximumFractionDigits: 2
-        });
-        unitEl.textContent = formatted.unit;
+        refreshShapeArea(item, area_m2);
     });
 }
 
 // ===== Confirm Delete Setting =====
-document.querySelectorAll('input[name="confirmDelete"]').forEach(radio => {
-    radio.addEventListener("change", () => {
-        state.settings.confirmDelete = radio.value === "true";
-    });
+document.getElementById("confirmDeleteToggle").addEventListener("change", (e) => {
+    state.settings.confirmDelete = e.target.checked;
 });
 
 export function closeAllDeleteConfirms()
@@ -220,21 +221,23 @@ resetSettingsBtn.addEventListener("click", () => {
         `input[name="units"][value="${state.settings.areaUnit}"]`
     ).checked = true;
 
-    document.querySelector(
-        `input[name="mapType"][value="${state.settings.mapType}"]`
-    ).checked = true;
+    document.getElementById("confirmDeleteToggle").checked = state.settings.confirmDelete;
 
-    document.querySelector(
-        `input[name="confirmDelete"][value="${state.settings.confirmDelete}"]`
-    ).checked = true;
+    document.getElementById("debugModeToggle").checked = state.settings.debugMode;
 
-    // ---- Apply map effects ----
-    map.removeLayer(mapState.currentBaseLayer);
-    mapState.currentBaseLayer = baseLayers[state.settings.mapType];
-    mapState.currentBaseLayer.addTo(map);
+    if (mapState.currentBaseLayer !== baseLayers[state.settings.mapType]) {
+        document.querySelector(
+            `input[name="mapType"][value="${state.settings.mapType}"]`
+        ).checked = true;
 
-    // ---- Apply area effects ----
-    refreshAllAreas();
+        // Remove old layer + add correct one
+        map.removeLayer(mapState.currentBaseLayer);
+        mapState.currentBaseLayer = baseLayers[state.settings.mapType];
+        mapState.currentBaseLayer.addTo(map);
+    }
+
+    // ---- Apply effects ----
+    refreshAllShapeCards();
 });
 
 
@@ -266,7 +269,7 @@ if (deleteAllYes) {
     });
 }
 
-export function renderShapeUI(item, data, area_m2, debugMode) {
+export function renderShapeUI(item, data, area_m2) {
 
     const valid = Number.isFinite(data.result.result.population);
     const details = item.querySelector(".shape-details");
@@ -297,7 +300,7 @@ export function renderShapeUI(item, data, area_m2, debugMode) {
     }
 
 
-    if (!debugMode) {
+    if (!state.settings.debugMode) {
         details.innerHTML = `
             <button class="shape-delete" aria-label="Delete shape">🗑</button>
 
@@ -353,10 +356,10 @@ export function renderShapeUI(item, data, area_m2, debugMode) {
                 <b>Shape Perimeter:</b> ${G.perimeter_deg}°
 
                 <b>Calculation Preset:</b> ${R.speed}
-                <b>Tile Size:</b> ${R.scheme_tile_size_deg}
+                <b>Tile Size:</b> ${R.scheme_tile_size_deg}°
                 <b>Maximum Chosen Depth:</b> ${R.custom_max_depth}
 
-                <b>Complexity: </b> ${G.complexity}
+                <b>Complexity Factor: </b> ${G.complexity}
                 <b>Effective Resolution:</b>
                 ${R.highest_resolution_degrees}° /
                 ${R.highest_resolution_minutes}' /
@@ -375,15 +378,7 @@ export function renderShapeUI(item, data, area_m2, debugMode) {
         item.classList.add("debug-expanded")
     }
 
-    const formatted = formatArea(area_m2);
-
-    const v = details.querySelector(".area-value");
-    const u = details.querySelector(".area-unit");
-
-    if (v && u) {
-        v.textContent = formatted.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        u.textContent = formatted.unit;
-    }
+    refreshShapeArea(item, area_m2);
 
 }
 
@@ -397,7 +392,7 @@ export function refreshAllShapeCards() {
     state.shapes.forEach(({ item, result, area_m2, layer }, id) => {
 
         // Re-render UI
-        renderShapeUI(item, result, area_m2, state.settings.debugMode);
+        renderShapeUI(item, result, area_m2);
 
         // Re-bind delete buttons (because innerHTML wipes them)
         const deleteBtn = item.querySelector(".shape-delete");
@@ -445,3 +440,68 @@ const settingsActions = document.querySelector(".settings-actions");
 settingsActions.addEventListener("mouseleave", () => {
     deleteAllConfirm.classList.remove("show");
 });
+
+// Info Panel
+
+const infoPanel = document.getElementById("infoPanelContent");
+
+function setInfoPanelText(text) {
+    infoPanel.innerHTML = `<p>${text}</p>`;
+}
+
+function resetInfoPanel() {
+    infoPanel.innerHTML = `
+        <p class="placeholder">
+            Hover over any <span class="info-icon small">i</span> icon to see details here.
+        </p>`;
+}
+
+// Attach behaviour to all existing and future info icons
+let pinnedIcon = null;
+let pinnedMessage = null;
+
+export function initializeInfoPanelListeners() {
+    document.querySelectorAll('.info-icon').forEach(icon => {
+
+        const message = icon.dataset.info;
+
+        // Hover temporarily overrides pinned state
+        icon.addEventListener("mouseenter", () => {
+            setInfoPanelText(message); 
+        });
+
+        // On leaving: restore pinned message or placeholder
+        icon.addEventListener("mouseleave", () => {
+            if (pinnedMessage) setInfoPanelText(pinnedMessage);
+            else resetInfoPanel();
+        });
+
+        // Click-to-pin
+        icon.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Unpin if clicking same icon
+            if (pinnedIcon === icon) {
+                icon.classList.remove("pinned");
+                pinnedIcon = null;
+                pinnedMessage = null;
+                resetInfoPanel();
+                return;
+            }
+
+            // Remove previous pinned state
+            if (pinnedIcon) {
+                pinnedIcon.classList.remove("pinned");
+            }
+
+            // Pin new icon
+            pinnedIcon = icon;
+            pinnedMessage = message;
+            icon.classList.add("pinned");
+            setInfoPanelText(message);
+        });
+    });
+}
+
+initializeInfoPanelListeners();

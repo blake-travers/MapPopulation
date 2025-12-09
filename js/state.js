@@ -6,7 +6,8 @@ export const DEFAULT_SETTINGS = {
     calcMode: "fast",
     mapType: "vector_carto",
     areaUnit: "km2",
-    confirmDelete: false
+    confirmDelete: false,
+    debugMode: false
 };
 
 export const state = {

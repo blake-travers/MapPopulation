@@ -3,8 +3,8 @@
     --color-bg: #f0f0f0;
     --color-bg-border: #444444;
     --color-highlight: #e6e6e6;
-    --color-shape-panel: #d5dceb;
-    --color-settings-panel: #d5e9eb;
+    --color-shape-panel: #e2e6f1;
+    --color-settings-panel: #e2eef0;
     --color-header: #464646;
 }
 
@@ -52,7 +52,7 @@ html,body
     padding:0;
     display: flex;
 
-    border-left: 2px solid var(--color-bg-border);
+    border-left: 1.2px solid var(--color-bg-border);
 }
 
 #sidebarButton
@@ -64,9 +64,9 @@ html,body
     background: var(--color-bg);
 
     border-right: 6px solid transparent;
-    border-left: 2px solid var(--color-bg-border);
-    border-top: 2px solid var(--color-bg-border);
-    border-bottom: 2px solid var(--color-bg-border);
+    border-left: 1.2px solid var(--color-bg-border);
+    border-top: 1.2px solid var(--color-bg-border);
+    border-bottom: 1.2px solid var(--color-bg-border);
 
     padding: 8px 10px;
     cursor: pointer;
@@ -110,7 +110,7 @@ html,body
     font-size: 14px;
     padding: 8px 10px;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1.2px solid #eee;
     background: #f7f7f7;
     transition: background 0.2s ease;
 }
@@ -165,9 +165,9 @@ html,body
 
 .shape-color
 {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
+    width: 13px;
+    height: 13px;
+    border-radius: 4px;
 }
 
 .shape-details
@@ -330,7 +330,7 @@ html,body
     flex: 1;
     padding: 8px 0;
 
-    border: 2px solid var(--color-bg-border);
+    border: 1.2px solid var(--color-bg-border);
 
     cursor: pointer;
     font-size: 16px;
@@ -427,7 +427,7 @@ html,body
     cursor: pointer;
 
     background: var(--color-bg);
-    border: 2px solid var(--color-bg-border);
+    border: 1.2px solid var(--color-bg-border);
     border-radius: 4px;
 
     transition: background 0.1s ease;
@@ -497,7 +497,7 @@ html,body
 
 .settings-btn {
     background: var(--color-bg);
-    border: 2px solid #d6d6d6;
+    border: 1.2px solid #d6d6d6;
     border-radius: 4px;
     padding: 6px 12px;
     cursor: pointer;
@@ -568,37 +568,11 @@ html,body
     color: var(--color-header);
     opacity: 0.85;
 }
-.info-icon {
-    width: 16px;
-    height: 16px;
-
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 50%;
-    border: 1.5px solid var(--color-bg-border);
-
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1;
-
-    color: var(--color-header);
-    opacity: 0.75;
-    flex-shrink: 0;
-
-    cursor: pointer;
-}
-
-.info-icon:hover {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.05);
-}
 
 .settings-footer {
     flex-shrink: 0;
     height: 18%;
-    border-top: 1px dashed rgba(0, 0, 0, 0.15);
+    border-top: 1.2px solid rgba(0, 0, 0, 0.15);
 }
 
 
@@ -632,7 +606,7 @@ html,body
     height: 92px;
 
     border-radius: 4px;
-    border: 1px solid rgba(0,0,0,0.35);
+    border: 1.2px solid rgba(0,0,0,0.35);
 
     background-size: cover;
     background-position: center;
@@ -718,4 +692,95 @@ html,body
 
 .debug-grid b {
     font-weight: 500;
+}
+
+.checkbox-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.checkbox-option input {
+    cursor: pointer;
+}
+
+
+/* --- Info Panel --- */
+
+.info-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    border: 1.5px solid var(--color-bg-border);
+
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+    opacity: 0.75;
+    margin-left: 4px;
+
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.info-panel {
+    margin-top: 10px;
+}
+
+.info-panel-content {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.25);
+    border-radius: 4px;
+
+    padding: 10px 12px;
+    min-height: 240px;
+
+    font-size: 14px;
+    line-height: 1.6;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: var(--color-header);
+}
+
+/* Placeholder style */
+.info-panel-content .placeholder {
+    opacity: 0.65;
+    text-align: center;
+    font-size: 13px;
+}
+
+/* Optional: smaller info icon inside placeholder */
+.info-icon.small {
+    font-size: 12px;
+    width: 14px;
+    height: 14px;
+    line-height: 12px;
+}
+
+.info-icon:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* Pinned state */
+.info-icon.pinned {
+    background: #cfd8ff;
+    border-color: #6a78ff;
+    opacity: 1;
 }
