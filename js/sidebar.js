@@ -309,7 +309,7 @@ export function renderShapeUI(item, data, area_m2) {
                 <button class="confirm-yes">✓</button>
             </div>
 
-            <p><b>Population: </b> ${roundint(pop)}</p>
+            <p><b>Population: </b> ${roundint(pop)} &nbsp;±${U.algorithmic_uncertainty_pct}%</p>
 
             <p class="shape-area">
                 <b>Area:</b>
@@ -317,11 +317,12 @@ export function renderShapeUI(item, data, area_m2) {
                 <span class="area-unit"></span>
             </p>
 
-            <p><b>Uncertainty:</b> ±${U.algorithmic_uncertainty_pct}%</p>
             <p><b>Resolution:</b>
                 ${R.highest_resolution_degrees}° /
                 ${R.highest_resolution_minutes}' /
                 ${R.highest_resolution_seconds}" </p>
+
+            <p><b>Elapsed Time:</b> ${D.algorithm_time.total_ms} ms</p>
         `;
 
         item.classList.remove("debug-expanded");

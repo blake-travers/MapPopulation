@@ -90,159 +90,171 @@
                         <!-- SETTINGS TAB -->
                         <div class="tab-panel" id="tab-settings">
 
-                            <div class="settings-container">
 
-                                <!-- A) GLOBAL ACTIONS BAR -->
-                                <div class="settings-actions">
-                                    <div class="settings-action">
-                                        <button class="settings-btn danger delete-all-btn">
-                                            Delete All Shapes
-                                        </button>
+                            <!-- A) GLOBAL ACTIONS BAR -->
+                            <div class="settings-actions">
+                                <div class="settings-action">
+                                    <button class="settings-btn danger delete-all-btn">
+                                        Delete All Shapes
+                                    </button>
 
-                                        <div class="delete-confirm delete-all-confirm">
-                                            <span>Are you sure?</span>
-                                            <button class="confirm-yes">✓</button>
+                                    <div class="delete-confirm delete-all-confirm">
+                                        <span>Are you sure?</span>
+                                        <button class="confirm-yes">✓</button>
+                                    </div>
+                                </div>
+
+                                <div class="settings-action">
+                                    <button class="settings-btn reset-map-btn">
+                                        Reset Map Position
+                                    </button>
+                                </div>
+
+                                <div class="settings-action">
+                                    <button class="settings-btn reset-settings-btn">
+                                        Reset All Settings
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- B) CORE SETTINGS AREA -->
+                            <div class="settings-main">
+
+                                <!-- LEFT COLUMN -->
+                                <div class="settings-left">
+
+                                    <!-- Calculation Mode -->
+                                    <section class="settings-section">
+                                        <h3>Calculation Mode</h3>
+
+                                        <div class="radio-group">
+                                            <label class="radio-option">
+                                                <input type="radio" name="calcMode" value="fast" checked>
+                                                <span>Fast</span>
+                                                <span class="info-icon" data-info="Fast Mode sacrifices precision for speed - guaranteeing calculation times of no more than 0.5 seconds for all shapes. This works by sacrificing the maximum resolution the polygon is calculated at. <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
+                                            </label>
+
+                                            <label class="radio-option">
+                                                <input type="radio" name="calcMode" value="exact">
+                                                <span>Exact</span>
+                                                <span class="info-icon"  data-info="Exact Mode offers a precise calculation, refining the overall population value and reducing uncertainty. Please leave up to 10 seconds for the polygon to finish its calculations.  <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
+                                            </label>
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    <div class="settings-action">
-                                        <button class="settings-btn reset-map-btn">
-                                            Reset Map Position
-                                        </button>
-                                    </div>
+                                    <!-- Units -->
+                                    <section class="settings-section">
+                                        <h3>Units (Area)</h3>
+                                        <div class="radio-group">
+                                            <label class="radio-option">
+                                                <input type="radio" name="units" value="km2" checked>
+                                                km²
+                                            </label>
+                                            <label class="radio-option">
+                                                <input type="radio" name="units" value="mi2">
+                                                mi²
+                                            </label>
+                                            <label class="radio-option">
+                                                <input type="radio" name="units" value="ha">
+                                                hectares
+                                            </label>
+                                        </div>
+                                    </section>
 
-                                    <div class="settings-action">
-                                        <button class="settings-btn reset-settings-btn">
-                                            Reset All Settings
-                                        </button>
-                                    </div>
+                                    <!-- Confirm Delete + Debug Mode -->
+                                    <section class="settings-section">
+                                        <div class="checkbox-row">
+                                            <label class="checkbox-option">
+                                                <input type="checkbox" id="confirmDeleteToggle">
+                                                Confirm Delete
+                                                <span class="info-icon"  data-info="Adds a 'Confirm Deletion' button to ensure you don't accidently delete individual shapes.">i</span>
+                                            </label>
+
+                                            <label class="checkbox-option">
+                                                <input type="checkbox" id="debugModeToggle">
+                                                Debug Info
+                                                <span class="info-icon"  data-info="Display more information about each Polygon, the Population Calculations, and results. <br><br> Please note that not all attributes contain useful information.">i</span>
+                                            </label>
+                                        </div>
+                                    </section>
+
+                                    <section class="settings-section info-panel">
+                                        <div id="infoPanelContent" class="info-panel-content">
+                                            <p class="placeholder">Hover over any <span class="info-icon small">i</span> icon to see its details here.</p>
+                                        </div>
+                                    </section>
                                 </div>
 
-                                <!-- B) CORE SETTINGS AREA -->
-                                <div class="settings-main">
+                                <!-- RIGHT COLUMN -->
+                                <div class="settings-right">
 
-                                    <!-- LEFT COLUMN -->
-                                    <div class="settings-left">
+                                    <!-- Map Type -->
+                                    <section class="settings-section">
+                                        <h3>Map Type</h3>
 
-                                        <!-- Calculation Mode -->
-                                        <section class="settings-section">
-                                            <h3>Calculation Mode</h3>
+                                        <div class="radio-group vertical map-type-group">
 
-                                            <div class="radio-group">
-                                                <label class="radio-option">
-                                                    <input type="radio" name="calcMode" value="fast" checked>
-                                                    <span>Fast</span>
-                                                    <span class="info-icon" data-info="Fast Mode sacrifices precision for speed - guaranteeing calculation times of no more than 0.5 seconds for all shapes. This works by sacrificing the maximum resolution the polygon is calculated at. <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
-                                                </label>
+                                            <label class="radio-option map-type-option">
+                                                <input type="radio" name="mapType" value="vector_carto" checked>
+                                                <span class="map-type-label">Carto</span>
+                                                <div class="map-preview vector1"></div>
+                                            </label>
 
-                                                <label class="radio-option">
-                                                    <input type="radio" name="calcMode" value="exact">
-                                                    <span>Exact</span>
-                                                    <span class="info-icon"  data-info="Exact Mode offers a precise calculation, trading reduced population uncertainty for an increased calculation time. Please leave up to 10 seconds to wait for the polygon to finish its calculations.  <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
-                                                </label>
-                                            </div>
-                                        </section>
+                                            <label class="radio-option map-type-option">
+                                                <input type="radio" name="mapType" value="vector_osm">
+                                                <span class="map-type-label">OSM</span>
+                                                <div class="map-preview vector2"></div>
+                                            </label>
 
-                                        <!-- Units -->
-                                        <section class="settings-section">
-                                            <h3>Units (Area)</h3>
+                                            <label class="radio-option map-type-option">
+                                                <input type="radio" name="mapType" value="satellite">
+                                                <span class="map-type-label">Satellite</span>
+                                                <div class="map-preview satellite"></div>
+                                            </label>
 
-                                            <div class="radio-group">
-                                                <label class="radio-option">
-                                                    <input type="radio" name="units" value="km2" checked>
-                                                    km²
-                                                </label>
-                                                <label class="radio-option">
-                                                    <input type="radio" name="units" value="mi2">
-                                                    mi²
-                                                </label>
-                                                <label class="radio-option">
-                                                    <input type="radio" name="units" value="ha">
-                                                    hectares
-                                                </label>
-                                            </div>
-                                        </section>
+                                            <label class="radio-option map-type-option">
+                                                <input type="radio" name="mapType" value="terrain">
+                                                <span class="map-type-label">Terrain</span>
+                                                <div class="map-preview terrain"></div>
+                                            </label>
 
-                                        <!-- Confirm Delete + Debug Mode -->
-                                        <section class="settings-section">
-                                            <h3>Options</h3>
+                                            <label class="radio-option map-type-option">
+                                                <input type="radio" name="mapType" value="dark">
+                                                <span class="map-type-label">Dark</span>
+                                                <div class="map-preview dark"></div>
+                                            </label>
 
-                                            <div class="checkbox-row">
-                                                <label class="checkbox-option">
-                                                    <input type="checkbox" id="confirmDeleteToggle">
-                                                    Confirm Delete
-                                                    <span class="info-icon"  data-info="Check this setting to require a second level of confirmation when deleting singular shapes.">i</span>
-                                                </label>
-
-                                                <label class="checkbox-option">
-                                                    <input type="checkbox" id="debugModeToggle">
-                                                    Debug Info
-                                                    <span class="info-icon"  data-info="More information about the dimensions of each Polygon, the population calculations involved, and the results garnered.">i</span>
-                                                </label>
-                                            </div>
-                                        </section>
-
-                                        <section class="settings-section info-panel">
-                                            <div id="infoPanelContent" class="info-panel-content">
-                                                <p class="placeholder">Hover over any <span class="info-icon small">i</span> icon to see its details here.</p>
-                                            </div>
-                                        </section>
-                                    </div>
-
-                                    <!-- RIGHT COLUMN -->
-                                    <div class="settings-right">
-
-                                        <!-- Map Type -->
-                                        <section class="settings-section">
-                                            <h3>Map Type</h3>
-
-                                            <div class="radio-group vertical map-type-group">
-
-                                                <label class="radio-option map-type-option">
-                                                    <input type="radio" name="mapType" value="vector_carto" checked>
-                                                    <span class="map-type-label">Carto</span>
-                                                    <div class="map-preview vector1"></div>
-                                                </label>
-
-                                                <label class="radio-option map-type-option">
-                                                    <input type="radio" name="mapType" value="vector_osm">
-                                                    <span class="map-type-label">OSM</span>
-                                                    <div class="map-preview vector2"></div>
-                                                </label>
-
-                                                <label class="radio-option map-type-option">
-                                                    <input type="radio" name="mapType" value="satellite">
-                                                    <span class="map-type-label">Satellite</span>
-                                                    <div class="map-preview satellite"></div>
-                                                </label>
-
-                                                <label class="radio-option map-type-option">
-                                                    <input type="radio" name="mapType" value="terrain">
-                                                    <span class="map-type-label">Terrain</span>
-                                                    <div class="map-preview terrain"></div>
-                                                </label>
-
-                                                <label class="radio-option map-type-option">
-                                                    <input type="radio" name="mapType" value="dark">
-                                                    <span class="map-type-label">Dark</span>
-                                                    <div class="map-preview dark"></div>
-                                                </label>
-
-                                            </div>
-                                        </section>
+                                        </div>
+                                    </section>
 
 
-                                    </div>
+                                </div>
+                            </div>
+
+
+                            <div class="settings-footer">
+                                <div class="footer-section footer-data">
+                                    <p class="footer-text">
+                                        <b>Dataset: </b><br><i>GHS-POP R2023A (European Commission, JRC, 2023). doi:10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE <br></i>
+                                        Data has been adapted from its original form to suit this application. See Methodology section for more details.
+                                    </p>
                                 </div>
 
-                                <!-- C) RESERVED FUTURE SECTION -->
-                                <div class="settings-footer">
-                                    <!-- intentionally empty for now -->
-                                </div>
 
+                                <div class="footer-bottom">
+                                    <p class="footer-privacy-text">
+                                        <b>Privacy:</b> Your shapes are processed anonymously. No user data is stored.
+                                    </p>
+
+                                    <span class="footer-links">
+                                        <a href="#" target="_blank">[GitHub]</a>
+                                        <a href="#" target="_blank"></a>
+                                    </span>
+                                </div>
                             </div>
 
                         </div>
+
 
                     </div>
                 </div>

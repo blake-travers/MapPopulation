@@ -507,14 +507,11 @@ class COGAggregatorGDAL:
 
         logA = math.log10(max(width * height, 1e-8))
 
-        a1, b1 = 5, -1.1   # lower bound
-        a2, b2 = 6, -1.3   # upper bound
+        a, b = 4, -1.1
 
-        low = a1 + b1 * logA
-        high = a2 + b2 * logA
+        high = a + b * logA
 
-        low = max(0.1, min(low, 25.0))
-        high = max(low+0.1, min(high, 25.0))
+        high = max(min(high, 10.0), 0.1)
 
         return confidence_95, round(high, 1)
     
