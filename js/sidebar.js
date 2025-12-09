@@ -139,7 +139,7 @@ toggleBtn.textContent = '◀';
 
 let sidebarOpen = false;
 
-//next frame, open sidebar without transitions
+//Next frame, open sidebar without transitions
 requestAnimationFrame(() => {
     sidebar.style.width = SIDEBAR_WIDTH;
     sidebar.setAttribute('aria-hidden', 'false');
@@ -191,6 +191,13 @@ document.querySelectorAll('input[name="units"]').forEach(radio => {
     radio.addEventListener('change', () => {
         state.settings.areaUnit = radio.value;
         refreshAllAreas();
+    });
+});
+
+document.querySelectorAll('input[name="calcMode"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+        state.settings.calcMode = radio.value;
+        console.log("Calc mode changed:", state.settings.calcMode);
     });
 });
 
@@ -259,6 +266,171 @@ if (deleteAllYes) {
     });
 }
 
+export function renderShapeUI(item, data, area_m2, debugMode) {
+
+    const valid = Number.isFinite(data.result.result.population);
+    const details = item.querySelector(".shape-details");
+    const round5 = (x, d = 5) => Number(x.toFixed(d));
+    const roundint = (x) => Math.round(x).toLocaleString();
+
+    const pop = data.result.result.population;
+    const D = data.result.duration;
+    const G = data.result.geometry;
+    const R = data.result.resolution;
+    const Q = data.result.quadtree;
+    const U = data.result.uncertainty;
+
+
+
+    if (!valid) {
+        details.innerHTML = `
+            <button class="shape-delete" aria-label="Delete shape">🗑</button>
+
+            <div class="delete-confirm">
+                <span>Confirm Deletion:</span>
+                <button class="confirm-yes">✓</button>
+            </div>
+
+            <p style="color:#b00000;">Invalid shape — cannot process polygon</p>
+        `;
+        return;
+    }
+
+
+    if (!debugMode) {
+        details.innerHTML = `
+            <button class="shape-delete" aria-label="Delete shape">🗑</button>
+
+            <div class="delete-confirm">
+                <span>Confirm Deletion:</span>
+                <button class="confirm-yes">✓</button>
+            </div>
+
+            <p><b>Population: </b> ${roundint(pop)}</p>
+
+            <p class="shape-area">
+                <b>Area:</b>
+                <span class="area-value">-</span>
+                <span class="area-unit"></span>
+            </p>
+
+            <p><b>Uncertainty:</b> ±${U.algorithmic_uncertainty_pct}%</p>
+            <p><b>Resolution:</b>
+                ${R.highest_resolution_degrees}° /
+                ${R.highest_resolution_minutes}' /
+                ${R.highest_resolution_seconds}" </p>
+        `;
+
+        item.classList.remove("debug-expanded");
+    }
+
+    else {
+        details.innerHTML = `
+            <button class="shape-delete" aria-label="Delete shape">🗑</button>
+
+            <div class="delete-confirm">
+                <span>Confirm Deletion:</span>
+                <button class="confirm-yes">✓</button>
+            </div>
+
+            <p><b>Population: </b>${roundint(pop)}</p>
+
+            <p class="shape-area">
+                <b>Area:</b>
+                <span class="area-value">-</span>
+                <span class="area-unit"></span>
+            </p>
+
+            <div class="debug-grid">
+                <b>Dataset Open time:</b> ${D.algorithm_time.open_ms} ms
+                <b>Calculation time:</b> ${D.algorithm_time.process_ms} ms
+                <b>Server startup time:</b> ${D.lambda_time_ms} ms
+
+                <b>Shape Bounding box:</b>
+                [${G.bounding_box.xmin}°, ${G.bounding_box.ymin}°] →  [${G.bounding_box.xmax}°, ${G.bounding_box.ymax}°]
+                
+                <b>Shape Angular Span:</b> ${G.angular_span_deg}°
+                <b>Shape Perimeter:</b> ${G.perimeter_deg}°
+
+                <b>Calculation Preset:</b> ${R.speed}
+                <b>Tile Size:</b> ${R.scheme_tile_size_deg}
+                <b>Maximum Chosen Depth:</b> ${R.custom_max_depth}
+
+                <b>Complexity: </b> ${G.complexity}
+                <b>Effective Resolution:</b>
+                ${R.highest_resolution_degrees}° /
+                ${R.highest_resolution_minutes}' /
+                ${R.highest_resolution_seconds}"
+
+                <b>Number of Visited Nodes:</b> ${Q.nodes_visited}
+                <b>Full Nodes:</b> ${Q.full_nodes}
+                <b>Empty Nodes:</b> ${Q.empty_nodes}
+                <b>Partial Nodes:</b> ${Q.partial_nodes}
+                <b>Recursed Nodes:</b> ${Q.recursed_nodes}
+
+                <b>Algorithmic Uncertainty (95% Confidence):</b> ±${U.algorithmic_uncertainty_pct}%
+                <b>Estimated Dataset Uncertainty:</b> ±${U.estimated_dataset_uncertainty_pct}%
+            </div>
+        `;
+        item.classList.add("debug-expanded")
+    }
+
+    const formatted = formatArea(area_m2);
+
+    const v = details.querySelector(".area-value");
+    const u = details.querySelector(".area-unit");
+
+    if (v && u) {
+        v.textContent = formatted.value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        u.textContent = formatted.unit;
+    }
+
+}
+
+
+document.getElementById("debugModeToggle").addEventListener("change", (e) => {
+    state.settings.debugMode = e.target.checked;
+    refreshAllShapeCards();
+});
+
+export function refreshAllShapeCards() {
+    state.shapes.forEach(({ item, result, area_m2, layer }, id) => {
+
+        // Re-render UI
+        renderShapeUI(item, result, area_m2, state.settings.debugMode);
+
+        // Re-bind delete buttons (because innerHTML wipes them)
+        const deleteBtn = item.querySelector(".shape-delete");
+        const confirmBox = item.querySelector(".delete-confirm");
+        const confirmYes = item.querySelector(".confirm-yes");
+
+        if (deleteBtn) {
+            deleteBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeAllDeleteConfirms();
+
+                if (state.settings.confirmDelete) {
+                    confirmBox.classList.add("show");
+                } else {
+                    drawnItems.removeLayer(layer);
+                    item.remove();
+                    state.shapes.delete(id);
+                    updateEmptyState();
+                }
+            });
+        }
+
+        if (confirmYes) {
+            confirmYes.addEventListener("click", (e) => {
+                e.stopPropagation();
+                drawnItems.removeLayer(layer);
+                item.remove();
+                state.shapes.delete(id);
+                updateEmptyState();
+            });
+        }
+    });
+}
 
 if (deleteAllConfirm) {
     deleteAllConfirm.addEventListener("click", (e) => {

@@ -703,3 +703,19 @@ html,body
     width: 100%;
 }
 
+.shape-item.open .shape-details {
+    max-height: 500px;
+}
+
+.debug-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    row-gap: 4px;
+    column-gap: 10px;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.debug-grid b {
+    font-weight: 500;
+}

@@ -2,6 +2,8 @@ import { state } from "./state.js";
 
 import { formatArea, updateEmptyState, closeAllDeleteConfirms } from "./sidebar.js";
 
+import { renderShapeUI } from "./sidebar.js";
+
 async function addSampleShapes() {
     const samples = [
         {
@@ -283,10 +285,6 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         const data = await response.json();
         console.log("Lambda response:", data);
 
-        const population = data.result.result.population;
-        const timems = data.result.duration.algorithm_time.total_ms;
-        const valid = Number.isFinite(population);
-
         // --- Create sidebar dropdown ---
         const item = document.createElement("div");
         item.className = "shape-item open";
@@ -298,36 +296,40 @@ map.on(L.Draw.Event.CREATED, async function (event) {
                 <span class="shape-arrow">▼</span>
             </div>
 
-            <div class="shape-details">
-                <button class="shape-delete" aria-label="Delete shape">🗑</button>
-
-                <div class="delete-confirm">
-                    <span>Confirm Deletion:</span>
-                    <button class="confirm-yes">✓</button>
-                </div>
-
-            ${
-                valid
-                ? `
-                    <p><b>Population:</b> ${Math.round(population).toLocaleString()}</p>
-
-                    <p class="shape-area">
-                        <b>Area:</b>
-                        <span class="area-value">-</span>
-                        <span class="area-unit"></span>
-                    </p>
-
-                    <p><b>Time:</b> ${timems} ms</p>
-                `
-                : `
-                    <p style="color:#b00000; font-weight:500;">
-                        Error: Shapes cannot have intersecting edges
-                    </p>
-                `
-            }
-            </div>
+            <div class="shape-details"></div>
         `;
+
         item.style.setProperty("--shape-color", color);
+
+        document.getElementById("shapeList").appendChild(item);
+
+        renderShapeUI(item, data, area_m2, state.settings.debugMode); //Render details through sidebar function
+
+        const areaValueEl = item.querySelector(".area-value");
+        const areaUnitEl  = item.querySelector(".area-unit");
+
+        if (areaValueEl && areaUnitEl) {
+            const formatted = formatArea(area_m2);
+            areaValueEl.textContent = formatted.value.toLocaleString(undefined, {
+                maximumFractionDigits: 2
+            });
+            areaUnitEl.textContent = formatted.unit;
+        }
+
+        // Auto-scroll to bottom
+        const panels = document.querySelector(".sidebar-panels");
+        panels.scrollTo({
+            top: panels.scrollHeight,
+            behavior: "smooth"
+        });
+
+        state.shapes.set(id, {
+            layer,
+            item,
+            area_m2,
+            result: data 
+        });
+
 
         const deleteBtn = item.querySelector(".shape-delete");
         const confirmBox = item.querySelector(".delete-confirm");
@@ -358,33 +360,6 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
             updateEmptyState();
         });
-
-        document.getElementById("shapeList").appendChild(item);
-
-        const areaValueEl = item.querySelector(".area-value");
-        const areaUnitEl  = item.querySelector(".area-unit");
-
-        if (areaValueEl && areaUnitEl) {
-            const formatted = formatArea(area_m2);
-            areaValueEl.textContent = formatted.value.toLocaleString(undefined, {
-                maximumFractionDigits: 2
-            });
-            areaUnitEl.textContent = formatted.unit;
-        }
-
-        // Auto-scroll to bottom
-        const panels = document.querySelector(".sidebar-panels");
-        panels.scrollTo({
-            top: panels.scrollHeight,
-            behavior: "smooth"
-        });
-
-        state.shapes.set(id, {
-            layer,
-            item,
-            area_m2
-        });
-
         updateEmptyState();
 
         layer.fire("population:done");

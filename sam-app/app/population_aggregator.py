@@ -96,6 +96,7 @@ class COGAggregatorGDAL:
                 self.scales = self._get_scales(ds)
             if not self.max_depth: #First time
                 self.max_depth = ds.GetRasterBand(1).GetOverviewCount()
+                #If custom max depth is more tha 14 (which it very well can be with current implementation)
                 self.custom_max_depth = min(self.custom_max_depth, self.max_depth)
 
             t_open = time.time() - t0
@@ -239,29 +240,29 @@ class COGAggregatorGDAL:
         # ---- Shape complexity ----
         BASE_SPAN = 90
         SHAPE_CONSTANT = 0.5
-        COMPLEXITY_CONSTANT = 1.5
+        COMPLEXITY_CONSTANT = 2
 
         extra_perimeter = max(0.0, self.perimeter - 4 * self.angular_span)
 
         complexity_span = self.angular_span + SHAPE_CONSTANT * extra_perimeter
-        self.complexity = COMPLEXITY_CONSTANT * (math.log(complexity_span / BASE_SPAN, 4))
+        self.complexity = -min(0, COMPLEXITY_CONSTANT * (math.log(complexity_span / BASE_SPAN, 4)))
 
         # ---- Simple Scheme selection Heuristic ----
-        if self.angular_span > 35 or complexity_span > 180:
+        if self.angular_span > 30 or complexity_span > 180:
             scheme = self.schemes["large"]
         else:
             scheme = self.schemes["small"]
 
         # ---- Depth Speed selection ----
         if speed == "fast":
-            base_depth = 4
+            base_depth = 5
         else:
             base_depth = 9
 
         if scheme["tile_size"] == 180: # Account for scheme type
-            base_depth += 2 #This is not 1:1 though... COG30 depth 0 = 30, COG180 depth 2 = 45.
+            base_depth += 2 #This is not 1:1 though... COG30 depth 0 = 30, COG180 depth 2 = 45. So in reality should be more like ~+2.4
 
-        depth = int(round(base_depth - self.complexity))
+        depth = int(round(base_depth + self.complexity))
         depth = max(3, depth)
 
         print(
@@ -507,7 +508,7 @@ class COGAggregatorGDAL:
         logA = math.log10(max(width * height, 1e-8))
 
         a1, b1 = 5, -1.1   # lower bound
-        a2, b2 = 10, -2   # upper bound
+        a2, b2 = 6, -1.3   # upper bound
 
         low = a1 + b1 * logA
         high = a2 + b2 * logA
@@ -515,7 +516,7 @@ class COGAggregatorGDAL:
         low = max(0.1, min(low, 25.0))
         high = max(low+0.1, min(high, 25.0))
 
-        return confidence_95, [round(low, 1), round(high, 1)]
+        return confidence_95, round(high, 1)
     
 
 
@@ -525,7 +526,7 @@ def test_polygons():
 
     example_polygons = [
         ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, "fast"),
-        ("Small square (Melbourne CBD)", {"type": "Polygon","coordinates":[[[144.955, -37.820],[144.965, -37.820],[144.965, -37.810],[144.955, -37.810],[144.955, -37.820]]]}, "fast"),
+        ("Sample1", {"type": "Polygon","coordinates":[[[144.921, -37.876],[144.927, -37.856],[144.969, -37.885],[145.019, -37.852],[145.020, -37.790],[144.958, -37.761],[144.911, -37.767],[144.875, -37.787],[144.858, -37.816],[144.853, -37.861],[144.921, -37.876]]]}, "fast"),
         ("Europe rectangle", {"type": "Polygon","coordinates": [[[10, 50],[20, 50],[20, 55],[10, 55],[10, 50]]]}, "fast"),
         ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "fast"),
         ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "exact"),
