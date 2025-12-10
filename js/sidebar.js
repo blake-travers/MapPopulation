@@ -72,43 +72,63 @@ updateEmptyState();
 export function formatArea(area_m2) {
     switch (state.settings.areaUnit) {
         case "ha":
-            return {
-                value: area_m2 / 10_000,
-                unit: "ha"
-            };
+            return area_m2 / 10_000;
 
         case "mi2":
-            return {
-                value: area_m2 / 2_589_988.110336,
-                unit: "mi²"
-            };
+            return area_m2 / 2_589_988.110336;
 
         case "km2":
         default:
-            return {
-                value: area_m2 / 1_000_000,
-                unit: "km²"
-            };
+            return area_m2 / 1_000_000;
     }
 }
 
-function refreshShapeArea(item, area_m2) {
-    const formatted = formatArea(area_m2);
+export function formatDensity(pop, area_m2) {
+    switch (state.settings.areaUnit) {
+        case "ha": {
+            const area = area_m2 / 10_000;
+            return { value: pop / area, unit: "people/ha" };
+        }
 
-    const valueEl = item.querySelector(".area-value");
-    const unitEl  = item.querySelector(".area-unit");
+        case "mi2": {
+            const area = area_m2 / 2_589_988.110336;
+            return { value: pop / area, unit: "people/mi²" };
+        }
 
-    if (!valueEl || !unitEl) return;
-
-    valueEl.textContent = formatted.value.toLocaleString(undefined, {
-        maximumFractionDigits: 2
-    });
-    unitEl.textContent = formatted.unit;
+        case "km2":
+        default: {
+            const area = area_m2 / 1_000_000;
+            return { value: pop / area, unit: "people/km²" };
+        }
+    }
 }
 
-function refreshAllAreas() {
-    state.shapes.forEach(({ item, area_m2 }) => {
-        refreshShapeArea(item, area_m2);
+function refreshShapeAreaDensity(item, area_m2, pop) {
+    const areaValue = formatArea(area_m2);
+    const { value: densityValue, unit: densityUnit } = formatDensity(pop, area_m2);;
+
+    const areaEl = item.querySelector(".area-value");
+    const areaUnitEl  = item.querySelector(".area-unit");
+    const densityEl = item.querySelector(".density-value");
+    const densityUnitEl = item.querySelector(".density-unit");
+    
+    if (!areaEl || !areaUnitEl || !densityEl || !densityUnitEl) return;
+
+    areaEl.textContent = areaValue.toLocaleString(undefined, {
+        maximumFractionDigits: 2
+    });
+    densityEl.textContent = densityValue.toLocaleString(undefined, {
+        maximumFractionDigits: 2
+    });
+
+    areaUnitEl.textContent = state.settings.areaUnit
+    densityUnitEl.textContent = densityUnit;  
+}
+
+
+function refreshAllAreasDensities() {
+    state.shapes.forEach(({ item, area_m2, result}) => {
+        refreshShapeAreaDensity(item, area_m2, result.result.result.population);
     });
 }
 
@@ -191,7 +211,7 @@ document.addEventListener("keydown", (e) => {
 document.querySelectorAll('input[name="units"]').forEach(radio => {
     radio.addEventListener('change', () => {
         state.settings.areaUnit = radio.value;
-        refreshAllAreas();
+        refreshAllAreasDensities();
     });
 });
 
@@ -309,19 +329,20 @@ export function renderShapeUI(item, data, area_m2) {
                 <button class="confirm-yes">✓</button>
             </div>
 
+            <button class="shape-pan" aria-label="Pan to shape">🔍︎</button>
+
             <p><b>Population: </b> ${roundint(pop)} &nbsp;±${U.algorithmic_uncertainty_pct}%</p>
 
-            <p class="shape-area">
+            <p>
                 <b>Area:</b>
                 <span class="area-value">-</span>
-                <span class="area-unit"></span>
+                <span class="area-unit"></span> <br>
             </p>
-
-            <p><b>Resolution:</b>
-                ${R.highest_resolution_degrees}° /
-                ${R.highest_resolution_minutes}' /
-                ${R.highest_resolution_seconds}" </p>
-
+            <p>
+                <b>Density:</b> 
+                <span class="density-value">-</span>
+                <span class="density-unit"></span>
+            </p>
             <p><b>Elapsed Time:</b> ${D.algorithm_time.total_ms} ms</p>
         `;
 
@@ -337,18 +358,25 @@ export function renderShapeUI(item, data, area_m2) {
                 <button class="confirm-yes">✓</button>
             </div>
 
+            <button class="shape-pan" aria-label="Pan to shape">🔍︎</button>
+
             <p><b>Population: </b>${roundint(pop)}</p>
 
-            <p class="shape-area">
+            <p>
                 <b>Area:</b>
                 <span class="area-value">-</span>
-                <span class="area-unit"></span>
+                <span class="area-unit"></span> <br>
+            </p>
+            <p>
+                <b>Density:</b> 
+                <span class="density-value">-</span>
+                <span class="density-unit"></span>
             </p>
 
             <div class="debug-grid">
+                <b>Total Calculation Time:</b> ${D.algorithm_time.total_ms} ms
                 <b>Dataset Open time:</b> ${D.algorithm_time.open_ms} ms
-                <b>Calculation time:</b> ${D.algorithm_time.process_ms} ms
-                <b>Server startup time:</b> ${D.lambda_time_ms} ms
+                <b>Shape Process time:</b> ${D.algorithm_time.process_ms} ms
 
                 <b>Shape Bounding box:</b>
                 [${G.bounding_box.xmin}°, ${G.bounding_box.ymin}°] →  [${G.bounding_box.xmax}°, ${G.bounding_box.ymax}°]
@@ -357,20 +385,11 @@ export function renderShapeUI(item, data, area_m2) {
                 <b>Shape Perimeter:</b> ${G.perimeter_deg}°
 
                 <b>Calculation Preset:</b> ${R.speed}
-                <b>Tile Size:</b> ${R.scheme_tile_size_deg}°
-                <b>Maximum Chosen Depth:</b> ${R.custom_max_depth}
-
-                <b>Complexity Factor: </b> ${G.complexity}
                 <b>Effective Resolution:</b>
                 ${R.highest_resolution_degrees}° /
                 ${R.highest_resolution_minutes}' /
                 ${R.highest_resolution_seconds}"
-
                 <b>Number of Visited Nodes:</b> ${Q.nodes_visited}
-                <b>Full Nodes:</b> ${Q.full_nodes}
-                <b>Empty Nodes:</b> ${Q.empty_nodes}
-                <b>Partial Nodes:</b> ${Q.partial_nodes}
-                <b>Recursed Nodes:</b> ${Q.recursed_nodes}
 
                 <b>Algorithmic Uncertainty (95% Confidence):</b> ±${U.algorithmic_uncertainty_pct}%
                 <b>Estimated Dataset Uncertainty:</b> ±${U.estimated_dataset_uncertainty_pct}%
@@ -379,9 +398,17 @@ export function renderShapeUI(item, data, area_m2) {
         item.classList.add("debug-expanded")
     }
 
-    refreshShapeArea(item, area_m2);
-
+    refreshShapeAreaDensity(item, area_m2, pop);
 }
+// <b>Tile Size:</b> ${R.scheme_tile_size_deg}°
+// <b>Complexity Factor: </b> ${G.complexity}
+// <b>Maximum Chosen Depth:</b> ${R.custom_max_depth}
+// <b>Full Nodes:</b> ${Q.full_nodes}
+// <b>Empty Nodes:</b> ${Q.empty_nodes}
+// <b>Partial Nodes:</b> ${Q.partial_nodes}
+// <b>Recursed Nodes:</b> ${Q.recursed_nodes}
+// <b>Server startup time:</b> ${D.lambda_time_ms} ms
+
 
 
 document.getElementById("debugModeToggle").addEventListener("change", (e) => {
@@ -396,35 +423,7 @@ export function refreshAllShapeCards() {
         renderShapeUI(item, result, area_m2);
 
         // Re-bind delete buttons (because innerHTML wipes them)
-        const deleteBtn = item.querySelector(".shape-delete");
-        const confirmBox = item.querySelector(".delete-confirm");
-        const confirmYes = item.querySelector(".confirm-yes");
-
-        if (deleteBtn) {
-            deleteBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                closeAllDeleteConfirms();
-
-                if (state.settings.confirmDelete) {
-                    confirmBox.classList.add("show");
-                } else {
-                    drawnItems.removeLayer(layer);
-                    item.remove();
-                    state.shapes.delete(id);
-                    updateEmptyState();
-                }
-            });
-        }
-
-        if (confirmYes) {
-            confirmYes.addEventListener("click", (e) => {
-                e.stopPropagation();
-                drawnItems.removeLayer(layer);
-                item.remove();
-                state.shapes.delete(id);
-                updateEmptyState();
-            });
-        }
+        attachShapeListeners(item, layer, id);
     });
 }
 
@@ -456,6 +455,58 @@ function resetInfoPanel() {
             Hover over any <span class="info-icon small">i</span> icon to see details here.
         </p>`;
 }
+
+export function attachShapeListeners(item, layer, id) {
+    const deleteBtn   = item.querySelector(".shape-delete");
+    const confirmBox  = item.querySelector(".delete-confirm");
+    const confirmYes  = item.querySelector(".confirm-yes");
+    const panBtn      = item.querySelector(".shape-pan");
+
+    // DELETE
+    if (deleteBtn) {
+        deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            closeAllDeleteConfirms();
+
+            if (state.settings.confirmDelete) {
+                confirmBox.classList.add("show");
+            } else {
+                drawnItems.removeLayer(layer);
+                item.remove();
+                state.shapes.delete(id);
+                updateEmptyState();
+            }
+        });
+    }
+
+    // CONFIRM DELETE
+    if (confirmYes) {
+        confirmYes.addEventListener("click", (e) => {
+            e.stopPropagation();
+            drawnItems.removeLayer(layer);
+            item.remove();
+            state.shapes.delete(id);
+            updateEmptyState();
+        });
+    }
+
+    // PAN TO SHAPE
+    if (panBtn) {
+        panBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            const bounds = layer.getBounds();
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, {
+                    paddingTopLeft: [100, 100],
+                    paddingBottomRight: [sidebar.offsetWidth + 40, 100],
+                    maxZoom: 13
+                });
+            }
+        });
+    }
+}
+
 
 // Attach behaviour to all existing and future info icons
 let pinnedIcon = null;

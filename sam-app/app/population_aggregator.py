@@ -255,7 +255,7 @@ class COGAggregatorGDAL:
 
         # ---- Depth Speed selection ----
         if speed == "fast":
-            base_depth = 5
+            base_depth = 4
         else:
             base_depth = 9
 

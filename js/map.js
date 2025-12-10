@@ -1,8 +1,7 @@
 import { state } from "./state.js";
 
-import { formatArea, updateEmptyState, closeAllDeleteConfirms } from "./sidebar.js";
+import { renderShapeUI, updateEmptyState, closeAllDeleteConfirms, attachShapeListeners } from "./sidebar.js";
 
-import { renderShapeUI } from "./sidebar.js";
 
 async function addSampleShapes() {
     const samples = [
@@ -315,35 +314,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         });
 
 
-        const deleteBtn = item.querySelector(".shape-delete");
-        const confirmBox = item.querySelector(".delete-confirm");
-        const confirmYes = item.querySelector(".confirm-yes");
-
-        deleteBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-
-            closeAllDeleteConfirms();
-
-            if (state.settings.confirmDelete) {
-                confirmBox.classList.add("show");
-            } else {
-                // Immediate delete (no confirm)
-                drawnItems.removeLayer(layer);
-                item.remove();
-                state.shapes.delete(id);
-                updateEmptyState();
-            }
-        });
-
-        confirmYes.addEventListener("click", (e) => {
-            e.stopPropagation();
-
-            drawnItems.removeLayer(layer);
-            item.remove();
-            state.shapes.delete(id);
-
-            updateEmptyState();
-        });
+        attachShapeListeners(item, layer, id);
         updateEmptyState();
 
         layer.fire("population:done");
@@ -375,6 +346,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
             item.classList.toggle("open");
         });
 
+        const confirmBox = item.querySelector(".delete-confirm");
         item.addEventListener("mouseleave", () => {
             confirmBox.classList.remove("show");
         });
@@ -394,8 +366,7 @@ map.on(L.Draw.Event.EDITED, async (e) => {
     for (const layer of Object.values(e.layers._layers)) {
 
         // 1. Find matching entry
-        let entry = null;
-        for (const [, s] of state.shapes) {
+        for (const [entryId, s] of state.shapes) {
             if (s.layer === layer) {
                 entry = s;
                 break;
@@ -434,31 +405,7 @@ map.on(L.Draw.Event.EDITED, async (e) => {
         renderShapeUI(entry.item, entry.result, entry.area_m2);
 
         // 5. Re-bind delete button (innerHTML wipes bindings)
-        const deleteBtn   = entry.item.querySelector(".shape-delete");
-        const confirmBox  = entry.item.querySelector(".delete-confirm");
-        const confirmYes  = entry.item.querySelector(".confirm-yes");
-
-        deleteBtn.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            closeAllDeleteConfirms();
-
-            if (state.settings.confirmDelete) {
-                confirmBox.classList.add("show");
-            } else {
-                drawnItems.removeLayer(layer);
-                entry.item.remove();
-                state.shapes.delete(entry.id);
-                updateEmptyState();
-            }
-        });
-
-        confirmYes.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            drawnItems.removeLayer(layer);
-            entry.item.remove();
-            state.shapes.delete(entry.id);
-            updateEmptyState();
-        });
+        attachShapeListeners(entry.item, layer, entryId);
     }
 });
 
