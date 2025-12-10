@@ -338,7 +338,7 @@ export function renderShapeUI(item, data, area_m2) {
             <button class="shape-pan" aria-label="Pan to shape">🔍︎</button>
 
             <div class="simple-grid">
-                <b>Population:</b> ${roundint(pop)}
+                <b>Population:</b> ${roundint(pop)}&nbsp;  ±${U.algorithmic_uncertainty_pct}%
 
                 <b>Area:</b>
                 <span>
