@@ -185,7 +185,7 @@ const drawControl = new L.Control.Draw
         {
             polygon: true,  
             rectangle: true,
-            circle: false,
+            circle: true,
             polyline: false,
             marker: false,
             circlemarker: false
@@ -241,6 +241,27 @@ function normalisePolygonGeometry(geometry) {
     };
 }
 
+// Convert circles into a polygon with 128 segments
+function circleToPolygon(circleLayer, segments = 128) {
+    const center = circleLayer.getLatLng();
+    const radius = circleLayer.getRadius(); // meters
+
+    const coords = [];
+
+    for (let i = 0; i < segments; i++) {
+        const angle = (i / segments) * 360;
+        const point = L.GeometryUtil.destination(center, angle, radius);
+        coords.push([point.lng, point.lat]);
+    }
+
+    coords.push(coords[0]);
+
+    return {
+        type: "Polygon",
+        coordinates: [coords]
+    };
+}
+
 
 
 // Map + AWS Lambda Functionality //
@@ -258,11 +279,20 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
     drawnItems.addLayer(layer);
 
-    const rawGeom = layer.toGeoJSON().geometry;
-    const safeGeom = normalisePolygonGeometry(rawGeom);
+    let rawGeom = layer.toGeoJSON().geometry;
+    let safeGeom;
+
+    if (event.layerType === "circle") {
+        const circleGeom = circleToPolygon(layer);
+        safeGeom = normalisePolygonGeometry(circleGeom);
+    }
+    else {
+        safeGeom = normalisePolygonGeometry(rawGeom); //Normalise to span date line
+    }
+    
 
 
-    const area_m2 = turf.area({type: "Feature",geometry: safeGeom,properties: {}});
+    const area_m2 = turf.area({type: "Feature", geometry: safeGeom, properties: {}});
 
 
     try {
@@ -368,8 +398,12 @@ map.on(L.Draw.Event.EDITED, async (e) => {
     for (const layer of Object.values(e.layers._layers)) {
 
         // 1. Find matching entry
-        for (const [entryId, s] of state.shapes) {
+        let entryId = null;
+        let entry = null;
+
+        for (const [id, s] of state.shapes) {
             if (s.layer === layer) {
+                entryId = id;
                 entry = s;
                 break;
             }
@@ -377,15 +411,19 @@ map.on(L.Draw.Event.EDITED, async (e) => {
         if (!entry) continue;
 
         // 2. Recalculate geometry + area
-        const rawGeom = layer.toGeoJSON().geometry;
-        const safeGeom = normalisePolygonGeometry(rawGeom);
+        let rawGeom = layer.toGeoJSON().geometry;
+        let safeGeom;
 
-        const area_m2 = turf.area({
-            type: "Feature",
-            geometry: safeGeom
-        });
+        if (layer instanceof L.Circle) {
+            const circleGeom = circleToPolygon(layer);
+            safeGeom = normalisePolygonGeometry(circleGeom);
+        } else {
+            safeGeom = normalisePolygonGeometry(rawGeom);
+        }
 
-        entry.area_m2 = area_m2; // keep stored value
+        const area_m2 = turf.area({type: "Feature", geometry: safeGeom, properties: {}});
+
+        entry.area_m2 = area_m2;
 
         // 3. Re-fetch population from Lambda
         const response = await fetch(
@@ -399,18 +437,20 @@ map.on(L.Draw.Event.EDITED, async (e) => {
                 })
             }
         );
-        resetLastCallTimestamp()
+
+        resetLastCallTimestamp();
 
         const data = await response.json();
-        entry.result = data;  // store updated result
+        entry.result = data;
 
-        // 4. Re-render the card using ONE unified renderer
+        // 4. Re-render sidebar
         renderShapeUI(entry.item, entry.result, entry.area_m2);
 
-        // 5. Re-bind delete button (innerHTML wipes bindings)
+        // 5. Re-bind listeners
         attachShapeListeners(entry.item, layer, entryId);
     }
 });
+
 
 
 document.getElementById("addSampleShapesBtn")
