@@ -71,15 +71,21 @@ updateEmptyState();
 
 export function formatArea(area_m2) {
     switch (state.settings.areaUnit) {
-        case "ha":
-            return area_m2 / 10_000;
+        case "ha": {
+            const area = area_m2 / 10_000;
+            return {value: area, unit: "ha"};
+        } 
 
-        case "mi2":
-            return area_m2 / 2_589_988.110336;
+        case "mi2": {
+            const area = area_m2 / 2_589_988.110336;
+            return {value: area, unit: "mi²"};
+        }
 
-        case "km2":
-        default:
-            return area_m2 / 1_000_000;
+        case "km2": {
+            const area = area_m2 / 1_000_000;
+            return {value: area, unit: "km²"};
+        }
+            
     }
 }
 
@@ -104,7 +110,7 @@ export function formatDensity(pop, area_m2) {
 }
 
 function refreshShapeAreaDensity(item, area_m2, pop) {
-    const areaValue = formatArea(area_m2);
+    const { value: areaValue, unit: areaUnit } = formatArea(area_m2);;
     const { value: densityValue, unit: densityUnit } = formatDensity(pop, area_m2);;
 
     const areaEl = item.querySelector(".area-value");
@@ -121,7 +127,7 @@ function refreshShapeAreaDensity(item, area_m2, pop) {
         maximumFractionDigits: 2
     });
 
-    areaUnitEl.textContent = state.settings.areaUnit
+    areaUnitEl.textContent = areaUnit
     densityUnitEl.textContent = densityUnit;  
 }
 
@@ -331,19 +337,23 @@ export function renderShapeUI(item, data, area_m2) {
 
             <button class="shape-pan" aria-label="Pan to shape">🔍︎</button>
 
-            <p><b>Population: </b> ${roundint(pop)} &nbsp;±${U.algorithmic_uncertainty_pct}%</p>
+            <div class="simple-grid">
+                <b>Population:</b> ${roundint(pop)}
 
-            <p>
                 <b>Area:</b>
-                <span class="area-value">-</span>
-                <span class="area-unit"></span> <br>
-            </p>
-            <p>
-                <b>Density:</b> 
-                <span class="density-value">-</span>
-                <span class="density-unit"></span>
-            </p>
-            <p><b>Elapsed Time:</b> ${D.algorithm_time.total_ms} ms</p>
+                <span>
+                    <span class="area-value">-</span>
+                    <span class="area-unit"></span>
+                </span>
+
+                <b>Density:</b>
+                <span>
+                    <span class="density-value">-</span>
+                    <span class="density-unit"></span>
+                </span>
+
+            </div>
+
         `;
 
         item.classList.remove("debug-expanded");
@@ -360,29 +370,32 @@ export function renderShapeUI(item, data, area_m2) {
 
             <button class="shape-pan" aria-label="Pan to shape">🔍︎</button>
 
-            <p><b>Population: </b>${roundint(pop)}</p>
-
-            <p>
-                <b>Area:</b>
-                <span class="area-value">-</span>
-                <span class="area-unit"></span> <br>
-            </p>
-            <p>
-                <b>Density:</b> 
-                <span class="density-value">-</span>
-                <span class="density-unit"></span>
-            </p>
-
             <div class="debug-grid">
-                <b>Total Calculation Time:</b> ${D.algorithm_time.total_ms} ms
-                <b>Dataset Open time:</b> ${D.algorithm_time.open_ms} ms
-                <b>Shape Process time:</b> ${D.algorithm_time.process_ms} ms
+
+                <b>Population:</b> ${roundint(pop)}
+
+                <b>Area:</b>
+                <span>
+                    <span class="area-value">-</span>
+                    <span class="area-unit"></span>
+                </span>
+
+                <b>Density:</b>
+                <span>
+                    <span class="density-value">-</span>
+                    <span class="density-unit"></span>
+                </span>
 
                 <b>Shape Bounding box:</b>
                 [${G.bounding_box.xmin}°, ${G.bounding_box.ymin}°] →  [${G.bounding_box.xmax}°, ${G.bounding_box.ymax}°]
                 
                 <b>Shape Angular Span:</b> ${G.angular_span_deg}°
                 <b>Shape Perimeter:</b> ${G.perimeter_deg}°
+
+                <b>Algorithmic Uncertainty:</b> ±${U.algorithmic_uncertainty_pct}% (95% Confidence)
+                <b>Estimated Dataset Uncertainty:</b> ±${U.estimated_dataset_uncertainty_pct}%
+
+                <b>Total Calculation Time:</b> ${D.algorithm_time.total_ms} ms
 
                 <b>Calculation Preset:</b> ${R.speed}
                 <b>Effective Resolution:</b>
@@ -391,8 +404,7 @@ export function renderShapeUI(item, data, area_m2) {
                 ${R.highest_resolution_seconds}"
                 <b>Number of Visited Nodes:</b> ${Q.nodes_visited}
 
-                <b>Algorithmic Uncertainty (95% Confidence):</b> ±${U.algorithmic_uncertainty_pct}%
-                <b>Estimated Dataset Uncertainty:</b> ±${U.estimated_dataset_uncertainty_pct}%
+
             </div>
         `;
         item.classList.add("debug-expanded")
@@ -408,6 +420,8 @@ export function renderShapeUI(item, data, area_m2) {
 // <b>Partial Nodes:</b> ${Q.partial_nodes}
 // <b>Recursed Nodes:</b> ${Q.recursed_nodes}
 // <b>Server startup time:</b> ${D.lambda_time_ms} ms
+// <b>Dataset Open time:</b> ${D.algorithm_time.open_ms} ms
+// <b>Shape Process time:</b> ${D.algorithm_time.process_ms} ms
 
 
 
@@ -498,9 +512,9 @@ export function attachShapeListeners(item, layer, id) {
             const bounds = layer.getBounds();
             if (bounds.isValid()) {
                 map.fitBounds(bounds, {
-                    paddingTopLeft: [100, 100],
-                    paddingBottomRight: [sidebar.offsetWidth + 40, 100],
-                    maxZoom: 13
+                    paddingTopLeft: [200, 200],
+                    paddingBottomRight: [sidebar.offsetWidth + 200, 200],
+                    maxZoom: 14
                 });
             }
         });

@@ -241,6 +241,8 @@ function normalisePolygonGeometry(geometry) {
     };
 }
 
+
+
 // Map + AWS Lambda Functionality //
 map.on(L.Draw.Event.CREATED, async function (event) {
     const layer = event.layer;
@@ -292,7 +294,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
             <div class="shape-details"></div>
         `;
-
+        resetLastCallTimestamp()
         item.style.setProperty("--shape-color", color);
 
         document.getElementById("shapeList").appendChild(item);
@@ -397,6 +399,7 @@ map.on(L.Draw.Event.EDITED, async (e) => {
                 })
             }
         );
+        resetLastCallTimestamp()
 
         const data = await response.json();
         entry.result = data;  // store updated result
@@ -430,6 +433,53 @@ document.querySelectorAll('input[name="mapType"]').forEach(radio => {
         mapState.currentBaseLayer.addTo(map);
     });
 });
+
+
+let lastCallTimestamp = 0;
+
+// Warm up the Lambda Function in preparation for future requests
+function warmLambda() {
+    resetLastCallTimestamp();
+    fetch(
+        "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                polygon: { type: "Polygon", coordinates: [[[0,0],[0,0.01],[0.01,0],[0,0]]] },
+                speed: "fast"
+            })
+        }
+    );
+    console.log("Manually Re-Warming Lambda function...");
+    
+}
+
+function resetLastCallTimestamp() {
+    lastCallTimestamp = Date.now();
+}
+
+
+//On Load, Always warm Lambda
+window.addEventListener("load", () => {
+    if (!sessionStorage.getItem("lambdaWarm")) {
+        warmLambda();
+        sessionStorage.setItem("lambdaWarm", "1");
+    }
+});
+
+// On any click, if Lambda is Cold, Warm Lambda
+["click", "mousemove", "keydown", "touchstart"].forEach(evt => {
+    window.addEventListener(evt, () => {
+        if (Date.now() - lastCallTimestamp > 300000) {
+            warmLambda();
+        }
+    }, { once: false });
+});
+
+
+
+
 
 export {
     map,
