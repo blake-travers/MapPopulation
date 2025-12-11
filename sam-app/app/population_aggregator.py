@@ -171,9 +171,7 @@ class COGAggregatorGDAL:
             },
             "uncertainty": {
                 "algorithmic_uncertainty_pct": algorithmic_uncertainty,
-                "algorithmic_confidence_pct": 95,
-                "estimated_dataset_uncertainty_pct": dataset_uncertainty,
-                "estimated_dataset_uncertainty_note": "Coarse, Jury-rig uncertainty estimate based exclusively on area and shape.."
+                "estimated_dataset_uncertainty_pct": dataset_uncertainty
             },
 
             "diagnostics": {
@@ -497,11 +495,11 @@ class COGAggregatorGDAL:
         #Number of cells throughout highest calculated resolution
         cells_across_span = max(1.0, self.angular_span / self.resolution_degrees)
 
-        granularity_factor = min(1.0, 10.0 / cells_across_span)
+        granularity_factor = min(4.0, 10.0 / cells_across_span)
         sigma_pct = self.partial_ratio * granularity_factor * 2.0
 
         confidence_95 = 1.96 * sigma_pct
-        confidence_95 = round(min(max(confidence_95, 0.01), 5.0), 3)
+        confidence_95 = round(min(max(confidence_95, 0.01), 20), 3)
 
 
         pxmin, pymin, pxmax, pymax = self.polygon.bounds

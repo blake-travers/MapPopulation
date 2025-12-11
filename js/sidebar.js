@@ -392,7 +392,7 @@ export function renderShapeUI(item, data, area_m2) {
                 <b>Shape Angular Span:</b> ${G.angular_span_deg}°
                 <b>Shape Perimeter:</b> ${G.perimeter_deg}°
 
-                <b>Algorithmic Uncertainty:</b> ±${U.algorithmic_uncertainty_pct}% (95% Confidence)
+                <b>Algorithmic Uncertainty:</b> ±${U.algorithmic_uncertainty_pct}%
                 <b>Estimated Dataset Uncertainty:</b> ±${U.estimated_dataset_uncertainty_pct}%
 
                 <b>Total Calculation Time:</b> ${D.algorithm_time.total_ms} ms

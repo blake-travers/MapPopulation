@@ -13,10 +13,10 @@ This tool is optimised to return population calculations in under half a second 
 #### Population, Resolution & Uncertainty
 MapPopulation calculates the total population contained within any user-drawn shape. Supports shapes of all sizes - from suburbs to countries, using detailed global population rasters at up to 6 arc-second (≈200m at equator) resolution.
 
-For each query, the backend selects an appropriate resolution based on both the size and complexity of the shape to balance performance. Each shape's algorithmic uncertainty is calculated to a 95% confidence interval, and displayed for the user to consider.
+For each query, the backend selects an appropriate resolution based on both the size and complexity of the shape to balance performance. Each shape's algorithmic uncertainty is calculated and displayed for the user to consider.
 
 #### Performance
-The default "Fast" aggregation method is designed to return 95% of cases in under half a second - regardless of shape size or complexity. This speed is primarily achieved through both Quadtree-based partitioning of COGs and selective resolution sampling.
+The default "Fast" aggregation method is designed to return 90% of cases in under half a second - regardless of shape size or complexity. This speed is primarily achieved through both Quadtree-based partitioning of COGs and selective resolution sampling.
 
 If the user requires higher precision, "Exact" mode can be toggled which aims to reduce the algorthmic uncertainty by increasing the depth the aggregator reaches. While shapes in "Exact" mode take an average of ~3 seconds and can take up to 10 seconds to calculate, they reduce the algorithmic uncertainty of the shape to less than 0.1% in almost all cases.
 
@@ -33,7 +33,7 @@ Provides a simple interface for switching between calculation modes, toggling ma
 
 ## Methodology
 #### Data Formatting
-The Original Dataset contains a GeoTIFF at 3 arc second resolution. I have downsampled the base raster to ~6.59 arcseconds (because ~6.59*2^14 = 30 degrees), allowing the construction of 72 different Cloud-Optimised GeoTIFFs (COGs) with the base raster (16384x16382), and 14 overviews ranging from 8192x8192 to 1x1 in pixel size. We use all of these overviews as a method to efficiently store and fetch the data required for each depth of the quadtree algorithm in the population aggregator.
+The Original Dataset contains a GeoTIFF at 3 arc second resolution. I have downsampled the base raster to ~6.59 arcseconds which allows the construction of 72 Cloud-Optimised GeoTIFFs (COGs). Each raster is of size 16384^2 and spans 30 square degrees across. Each raster contains 14 overviews ranging from 8192x8192 to 1x1 in pixel size, primarily used as a method to efficiently store and fetch the data required for each depth of the quadtree algorithm in the population aggregator.
 
 In addition to these 30 degree tiles, two 180 degree tiles have also been constructed to allow large, relatively coarse polygons to bypass the limitation of having to partially open many files. With the threshold being an angular span of 25 degrees, this means that even in the worst case a polygon will only need to open a maximum of 4 tiles, reducing open time from up to 3 seconds to a maxmimum of 250 ms.
 
@@ -43,8 +43,7 @@ Population Calculations are performed by a serverless backend built in AWS Lambd
 
 Population is estimated through a recursive quadtree algorithm. Each "Pixel" in the raster is treated as a node in the quadtree. Simplified pseudocode is as follows:
 
-'''text
-
+```text
 function process_node(pixel, depth):
     if polygon does not intersect pixel:
         return 0
@@ -59,10 +58,9 @@ function process_node(pixel, depth):
 
         else, we must recurse one level deeper:
             return process_node(child, depth + 1) for each of the four child nodes
+```
 
-'''
-
-Maximum "depth" is determined through a combination of factors, including angular span, shape perimeter, and of course calculation method ("fast" / "exact"). Depth has been fine tuned to average ~250ms for fast mode and ~2000ms for exact mode.
+Maximum "depth" is determined through a combination of metrics, including angular span, shape perimeter, and calculation method. Depth has been fine tuned to average ~250ms for fast mode and ~2000ms for exact mode.
 
 #### Uncertainty Estimates
 
@@ -71,11 +69,22 @@ To ensure calculation transperancy, both the algorithmic and estimated dataset u
 - Dataset uncertainty is a very coarse estimation of possible variation in the given dataset, exclusively based upon the angular span of the polygon aggregated. This value should not be taken verbatim, and only used as a rough guide.
 
 #### Frontend
-Frontend here
 
+Frontend is constructed using HTML, CSS & Vanilla Javascript. Packages used include Leaflet, Leaflet Draw, Leaflet Geometry, and Turf
 
-## Limitations
-Limitations here
+#### Limitations
 
+Data source uses extensive population modelling. As such, they can only provide population estimates.
+
+Data used in the aggregator is limited to a "Depth" of 14 (meaning approximately ~200m resolution at the equator). Shapes under 1km^2 are prone to high algorithmic uncertainty.
+
+When a polygon partially overlaps a pixel at maximum resolution (almost always happens), the population is assumed to be uniformly distributed, and the population based on the proportion of polygon inside that pixel is used. While a better estimate than just discounting the pixel entirely, it introduces significant uncertainty into the estimate.
 ## Acknowledgements
-Generative AI has been used in parts of this project to debug, brainstorm, and 
+
+Generative AI has been used in parts of this project to debug, brainstorm, and refine implementation.
+
+Dataset
+Schiavina, Marcello; Freire, Sergio; Alessandra Carioli; MacManus, Kytt (2023): GHS-POP R2023A - GHS population grid multitemporal (1975-2030). European Commission, Joint Research Centre (JRC) [Dataset] doi: 10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE PID: http://data.europa.eu/89h/2ff68a52-5b5b-4a22-8f40-c41da8332cfe
+
+Dataset Methodology
+Pesaresi, Martino, Marcello Schiavina, Panagiotis Politis, Sergio Freire, Katarzyna Krasnodębska, Johannes H. Uhl, Alessandra Carioli, et al. (2024). Advances on the Global Human Settlement Layer by Joint Assessment of Earth Observation and Population Survey Data. International Journal of Digital Earth 17 (1). doi:10.1080/17538947.2024.2390454
