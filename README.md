@@ -31,24 +31,44 @@ Provides a simple interface for switching between calculation modes, toggling ma
 <img width="2556" height="1272" alt="image" src="https://github.com/user-attachments/assets/9c46b1e9-f6f5-44aa-9641-dbfe5e6e6a80" />
 
 
-
 ## Methodology
 #### Data Formatting
 The Original Dataset contains a GeoTIFF at 3 arc second resolution. I have downsampled the base raster to ~6.59 arcseconds (because ~6.59*2^14 = 30 degrees), allowing the construction of 72 different Cloud-Optimised GeoTIFFs (COGs) with the base raster (16384x16382), and 14 overviews ranging from 8192x8192 to 1x1 in pixel size. We use all of these overviews as a method to efficiently store and fetch the data required for each depth of the quadtree algorithm in the population aggregator.
 
 In addition to these 30 degree tiles, two 180 degree tiles have also been constructed to allow large, relatively coarse polygons to bypass the limitation of having to partially open many files. With the threshold being an angular span of 25 degrees, this means that even in the worst case a polygon will only need to open a maximum of 4 tiles, reducing open time from up to 3 seconds to a maxmimum of 250 ms.
 
-#### Population Aggregator
+#### Population Aggregation
 
-The construction of these COGS in such format allows the backend to efficiently call the desired overview level and calculate the estimated population within.
+Population Calculations are performed by a serverless backend built in AWS Lambda. Since COGs expose internal overviews, the aggregator can request population values at the appropriate resolution during any point in the quadtree algorithm. This drastically reduces the arithmetic neccesary for precise computations, resulting in fast access and calculation times.
 
-The general pseudocode for the quadtree recursion is as follows:
+Population is estimated through a recursive quadtree algorithm. Each "Pixel" in the raster is treated as a node in the quadtree. Simplified pseudocode is as follows:
 
-1. Compare polygon to geographical bounding box of this pixel
-2. If polygon does not intersect pixel, or pixel fully encloses polygon, stop
-3. Else, polygon must partially intersect the pixel. and we continue
-4. If at max depth (i.e. maximum resolution), calculate proportion of pixel inside polygon and stop
-5. Else, we recurse down into this pixel's four children at one overview level / depth lower.
+'''text
+
+function process_node(pixel, depth):
+    if polygon does not intersect pixel:
+        return 0
+
+    elif pixel is fully inside polygon:
+        return pixel.population_value
+
+    else, pixel must be partially intersected by polygon:
+        if current depth = maximum resolution:
+            fraction = proportion of polygon that intersects the pixel
+            return pixel.population_value * fraction
+
+        else, we must recurse one level deeper:
+            return process_node(child, depth + 1) for each of the four child nodes
+
+'''
+
+Maximum "depth" is determined through a combination of factors, including angular span, shape perimeter, and of course calculation method ("fast" / "exact"). Depth has been fine tuned to average ~250ms for fast mode and ~2000ms for exact mode.
+
+#### Uncertainty Estimates
+
+To ensure calculation transperancy, both the algorithmic and estimated dataset uncertainty have been calculated:
+- Algorithmic uncertainty is determined by calculating the ratio of partially intersected nodes to the total number of possible nodes. Through this, and a conservative granularity factor we can determine the algorithmic uncertainty to a 95% confidence. Algorithmic uncertainty is the metric shown by default in the frontend.
+- Dataset uncertainty is a very coarse estimation of possible variation in the given dataset, exclusively based upon the angular span of the polygon aggregated. This value should not be taken verbatim, and only used as a rough guide.
 
 #### Frontend
 Frontend here

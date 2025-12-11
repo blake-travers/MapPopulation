@@ -263,6 +263,45 @@ function circleToPolygon(circleLayer, segments = 128) {
 }
 
 
+function addOneTimeListeners(layer, item) {
+    //Add liseners that are independant of the innerhtml - only need to do this one time
+    layer.on("mouseover", () => {
+        layer.setStyle({fillOpacity: 0.4 });
+        item.classList.add("highlight");
+    });
+
+    layer.on("mouseout", () => {
+        layer.setStyle({fillOpacity: 0.2 });
+        item.classList.remove("highlight");
+    });
+
+    // --- Hover sync: sidebar → shape ---
+    item.addEventListener("mouseover", () => {
+        layer.setStyle({ fillOpacity: 0.4 });
+        item.classList.add("highlight");
+    });
+
+    item.addEventListener("mouseout", () => {
+        layer.setStyle({ fillOpacity: 0.2 });
+        item.classList.remove("highlight");
+    });
+
+    // --- Toggle dropdown ---
+    item.addEventListener("click", () => {
+        item.classList.toggle("open");
+    });
+
+    const confirmBox = item.querySelector(".delete-confirm");
+    item.addEventListener("mouseleave", () => {
+        confirmBox.classList.remove("show");
+    });
+
+    item.addEventListener("click", (e) => {
+        closeAllDeleteConfirms();
+    });
+}
+
+
 
 // Map + AWS Lambda Functionality //
 map.on(L.Draw.Event.CREATED, async function (event) {
@@ -270,14 +309,45 @@ map.on(L.Draw.Event.CREATED, async function (event) {
     const id = state.shapeCounter++;
     const color = getNextColor();
 
-    layer.setStyle({
-        color,
-        weight: 4,
-        fillOpacity: 0.2
-    });
-
-
+    layer.setStyle({color, weight: 3,fillOpacity: 0.15});
     drawnItems.addLayer(layer);
+
+    const item = document.createElement("div");
+    item.className = "shape-item open";
+    item.style.setProperty("--shape-color", color);
+    
+    item.innerHTML = `
+        <div class="shape-header">
+            <div class="shape-color" style="background:${color}"></div>
+            <span class="shape-title">Shape ${id}</span>
+            <span class="shape-arrow">▼</span>
+        </div>
+
+        <div class="shape-details loading">
+            <div class="loading-spinner"></div>
+            <p>Calculating population…</p>
+        </div>
+    `;
+
+    document.getElementById("shapeList").appendChild(item);
+
+    let slowTimerTriggered = false;
+
+    const slowTimer = setTimeout(() => { //if in fast mode and takes longer than a second we change what is printed (because lambda function is warming up)
+        if (state.settings.calcMode === "fast") {
+            const txt = item.querySelector(".loading-text");
+            if (txt) txt.textContent = "Warming up the Calculator...";
+            slowTimerTriggered = true;
+        }
+    }, 1000);
+
+    //Update State first
+    state.shapes.set(id, {layer,item,area_m2: null,result: null});
+    updateEmptyState();
+
+    // Auto-scroll to bottom
+    const panels = document.querySelector(".sidebar-panels");
+    panels.scrollTo({ top: panels.scrollHeight, behavior: "smooth" });
 
     let rawGeom = layer.toGeoJSON().geometry;
     let safeGeom;
@@ -289,11 +359,8 @@ map.on(L.Draw.Event.CREATED, async function (event) {
     else {
         safeGeom = normalisePolygonGeometry(rawGeom); //Normalise to span date line
     }
-    
-
 
     const area_m2 = turf.area({type: "Feature", geometry: safeGeom, properties: {}});
-
 
     try {
         const response = await fetch(
@@ -309,87 +376,28 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         );
 
         const data = await response.json();
+        clearTimeout(slowTimer);
         console.log("Lambda response:", data);
 
-        // --- Create sidebar dropdown ---
-        const item = document.createElement("div");
-        item.className = "shape-item open";
-
-        item.innerHTML = `
-            <div class="shape-header">
-                <div class="shape-color" style="background:${color}"></div>
-                <span class="shape-title">Shape ${id}</span>
-                <span class="shape-arrow">▼</span>
-            </div>
-
-            <div class="shape-details"></div>
-        `;
         resetLastCallTimestamp()
-        item.style.setProperty("--shape-color", color);
-
-        document.getElementById("shapeList").appendChild(item);
 
         renderShapeUI(item, data, area_m2); //Render details through sidebar function
-
-        // Auto-scroll to bottom
-        const panels = document.querySelector(".sidebar-panels");
-        panels.scrollTo({
-            top: panels.scrollHeight,
-            behavior: "smooth"
-        });
-
-        state.shapes.set(id, {
-            layer,
-            item,
-            area_m2,
-            result: data 
-        });
-
-
-        attachShapeListeners(item, layer, id);
-        updateEmptyState();
-
+        state.shapes.get(id).area_m2 = area_m2;
+        state.shapes.get(id).result = data;
+        
         layer.fire("population:done");
 
-        // --- Hover sync: shape → sidebar ---
-        layer.on("mouseover", () => {
-            layer.setStyle({fillOpacity: 0.4 });
-            item.classList.add("highlight");
-        });
-
-        layer.on("mouseout", () => {
-            layer.setStyle({fillOpacity: 0.2 });
-            item.classList.remove("highlight");
-        });
-
-        // --- Hover sync: sidebar → shape ---
-        item.addEventListener("mouseover", () => {
-            layer.setStyle({ fillOpacity: 0.4 });
-            item.classList.add("highlight");
-        });
-
-        item.addEventListener("mouseout", () => {
-            layer.setStyle({ fillOpacity: 0.2 });
-            item.classList.remove("highlight");
-        });
-
-        // --- Toggle dropdown ---
-        item.addEventListener("click", () => {
-            item.classList.toggle("open");
-        });
-
-        const confirmBox = item.querySelector(".delete-confirm");
-        item.addEventListener("mouseleave", () => {
-            confirmBox.classList.remove("show");
-        });
-
-        item.addEventListener("click", (e) => {
-            closeAllDeleteConfirms();
-        });
+        attachShapeListeners(item, layer, id); //Atatch Listeners rendered invalid through html
+        addOneTimeListeners(layer, item);
 
     } catch (err) {
+        clearTimeout(slowTimer);
         console.error("Population error:", err);
+
+        const details = item.querySelector(".shape-details");
+        details.innerHTML = `<p style="color:red;">Error calculating population. You may have created a polygon with intersecting edges, which is not supported by the population aggregator.</p>`;
     }
+
 });
 
 // Recalculate upon shape edit
@@ -397,14 +405,14 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 map.on(L.Draw.Event.EDITED, async (e) => {
     for (const layer of Object.values(e.layers._layers)) {
 
-        // 1. Find matching entry
+        // 1. Find matching entry in state
         let entryId = null;
-        let entry = null;
+        let entry   = null;
 
         for (const [id, s] of state.shapes) {
             if (s.layer === layer) {
                 entryId = id;
-                entry = s;
+                entry   = s;
                 break;
             }
         }
@@ -421,36 +429,53 @@ map.on(L.Draw.Event.EDITED, async (e) => {
             safeGeom = normalisePolygonGeometry(rawGeom);
         }
 
-        const area_m2 = turf.area({type: "Feature", geometry: safeGeom, properties: {}});
+        const area_m2 = turf.area({ type: "Feature", geometry: safeGeom, properties: {}});
 
         entry.area_m2 = area_m2;
 
-        // 3. Re-fetch population from Lambda
-        const response = await fetch(
-            "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    polygon: safeGeom,
-                    speed: state.settings.calcMode
-                })
+        const details = entry.item.querySelector(".shape-details");
+        if (details) {
+            details.classList.add("loading");
+            details.innerHTML = `
+                <div class="loading-spinner"></div>
+                <p>Recalculating population…</p>
+            `;
+        }
+
+        try {
+            // 3. Re-fetch population from Lambda
+            const response = await fetch(
+                "https://njsg367vql.execute-api.ap-southeast-4.amazonaws.com/hello",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        polygon: safeGeom,
+                        speed: state.settings.calcMode
+                    })
+                }
+            );
+
+            resetLastCallTimestamp();
+
+            const data = await response.json();
+            entry.result = data;
+
+            // 4. Re-render sidebar with fresh data & Attach innerhtml dependant listeners
+            renderShapeUI(entry.item, entry.result, entry.area_m2);
+            attachShapeListeners(entry.item, layer, entryId);
+
+        } catch (err) {
+            console.error("Population error (edit):", err);
+
+            const errDetails = entry.item.querySelector(".shape-details");
+            if (errDetails) {
+                errDetails.classList.remove("loading");
+                errDetails.innerHTML = `<p style="color:red;">Error recalculating population. You may have modified the polygon to contain intersecting edges, which is not supported by the population aggregator.</p>`;
             }
-        );
-
-        resetLastCallTimestamp();
-
-        const data = await response.json();
-        entry.result = data;
-
-        // 4. Re-render sidebar
-        renderShapeUI(entry.item, entry.result, entry.area_m2);
-
-        // 5. Re-bind listeners
-        attachShapeListeners(entry.item, layer, entryId);
+        }
     }
 });
-
 
 
 document.getElementById("addSampleShapesBtn")

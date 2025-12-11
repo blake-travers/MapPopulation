@@ -85,6 +85,7 @@ class COGAggregatorGDAL:
         total_open = 0
         total_process = 0
         tiles_processed = 0
+        self.warning = None
         for (lon1, lat1, lon2, lat2), key in candidate_tiles2:
             tiles_processed += 1
             t0 = time.time()
@@ -96,8 +97,10 @@ class COGAggregatorGDAL:
                 self.scales = self._get_scales(ds)
             if not self.max_depth: #First time
                 self.max_depth = ds.GetRasterBand(1).GetOverviewCount()
-                #If custom max depth is more tha 14 (which it very well can be with current implementation)
-                self.custom_max_depth = min(self.custom_max_depth, self.max_depth)
+                #If custom max depth is more than 14 (which it very well can be with current implementation)
+                if self.custom_max_depth > self.max_depth:
+                    self.warning = f"Custom Max Depth is larger than Max Depth. Polygon cannot fully recurse to chosen depth. This is okay for very small polygons. Desired: {self.custom_max_depth}, Max: {self.max_depth}"
+                    self.custom_max_depth = min(self.custom_max_depth, self.max_depth)
 
             t_open = time.time() - t0
             total_open += t_open
@@ -174,7 +177,7 @@ class COGAggregatorGDAL:
             },
 
             "diagnostics": {
-                "warnings": None
+                "warnings": self.warning
             }
         }
         return result
@@ -247,20 +250,20 @@ class COGAggregatorGDAL:
         complexity_span = self.angular_span + SHAPE_CONSTANT * extra_perimeter
         self.complexity = -min(0, COMPLEXITY_CONSTANT * (math.log(complexity_span / BASE_SPAN, 4)))
 
-        # ---- Simple Scheme selection Heuristic ----
-        if self.angular_span > 30 or complexity_span > 180:
+        # Simple Scheme selection Heuristic
+        if self.angular_span > 15 and speed == "fast" or self.angular_span > 30 and speed == "exact" or complexity_span > 180:
             scheme = self.schemes["large"]
         else:
             scheme = self.schemes["small"]
 
-        # ---- Depth Speed selection ----
+        # Depth Speed selection
         if speed == "fast":
             base_depth = 4
         else:
             base_depth = 9
 
         if scheme["tile_size"] == 180: # Account for scheme type
-            base_depth += 2 #This is not 1:1 though... COG30 depth 0 = 30, COG180 depth 2 = 45. So in reality should be more like ~+2.4
+            base_depth += 3 #This is not 1:1 though... COG30 depth 0 = 30, COG180 depth 3 = 22.5. So in reality should be more like ~+2.4
 
         depth = int(round(base_depth + self.complexity))
         depth = max(3, depth)

@@ -270,6 +270,6 @@ scales180 = [100, 100, 100, 100, 10, 10, 10,
              10, 10, 1, 1, 1, #This one here is 45 degrees.. close to previous 30 max
              0.1, 0.1] #12 long for 11 overviews + 1 base
 
-format_data(tile_size=180, depth=13, input_res=30.0, scales=scales180, output_dir="cog_tiles_180", input_tif = "./GHS_POP_E2025_GLOBE_R2023A_4326_30ss_V1_0/GHS_POP_E2025_GLOBE_R2023A_4326_30ss_V1_0.tif")
+#format_data(tile_size=180, depth=13, input_res=30.0, scales=scales180, output_dir="cog_tiles_180", input_tif = "./GHS_POP_E2025_GLOBE_R2023A_4326_30ss_V1_0/GHS_POP_E2025_GLOBE_R2023A_4326_30ss_V1_0.tif")
 
 check_single_file(cog_path="./cog_tiles_180/tile_([0,180],[-90,90]).tif")

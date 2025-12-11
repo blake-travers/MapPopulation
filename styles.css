@@ -179,7 +179,7 @@ html,body
     font-size: 14px;
     overflow: hidden;
 
-    max-height: 0;
+    max-height: 0px;
     opacity: 0;
     background: rgba(0, 0, 0, 0.00);
 
@@ -884,4 +884,24 @@ html,body
 
 .shape-pan:hover {
     background: #ebebeb;
+}
+
+.shape-details.loading {
+    opacity: 0.7;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.loading-spinner {
+    width: 14px;
+    height: 14px;
+    border: 3px solid #ccc;
+    border-top-color: #666;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
