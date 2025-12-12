@@ -3,6 +3,21 @@ import { map } from "./map.js";
 
 // Search Functionality //
 
+function zoomForFeature(props) {
+    switch (props.osm_value) {
+        case "country": return 4;
+        case "state":
+        case "province":
+        case "region": return 6;
+        case "county": return 7;
+        case "city": return 10;
+        case "town": return 11;
+        case "village":
+        case "municipality": return 12;
+        default: return 10;
+    }
+}
+
 async function searchLocation(query)
 {
     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}`;
@@ -75,12 +90,20 @@ async function searchLocation(query)
                         const lon = coords[0];
                         const lat = coords[1];
 
-                        map.setView([lat, lon], 10);
+                        const zoom = 10;
 
-                        L.marker([lat, lon])
-                            .addTo(map)
-                            .bindPopup(label)
-                            .openPopup();
+                        map.setView([lat, lon], zoomForFeature(props), { animate: false });
+
+                        const mapSize = map.getSize();
+                        const targetX = mapSize.x * 0.35;
+                        const centerX = mapSize.x * 0.5;
+
+                        const offsetX = centerX - targetX;
+
+                        // Step 3: pan by pixel offset
+                        map.panBy([offsetX, 0], { animate: false });
+
+                        L.marker([lat, lon]).addTo(map).bindPopup(label).openPopup();
 
                         searchResultsDiv.style.display = "none";
                     }
@@ -91,9 +114,8 @@ async function searchLocation(query)
         );
         searchResultsDiv.style.display = "block";
     }
-    catch (err)
-    {
-        alert("Search error: " + err);
+    catch (err) {
+        console.warn("Search fetch aborted:", err);
     }
 }
 

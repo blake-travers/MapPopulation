@@ -312,6 +312,26 @@ map.on(L.Draw.Event.CREATED, async function (event) {
     layer.setStyle({color, weight: 3,fillOpacity: 0.15});
     drawnItems.addLayer(layer);
 
+    let rawGeom = layer.toGeoJSON().geometry;
+    let safeGeom;
+
+    if (event.layerType === "circle") {
+        const circleGeom = circleToPolygon(layer);
+        safeGeom = normalisePolygonGeometry(circleGeom);
+    }
+    else {
+        safeGeom = normalisePolygonGeometry(rawGeom); //Normalise to span date line
+    }
+
+    const area_m2 = turf.area({type: "Feature", geometry: safeGeom, properties: {}});
+
+    
+    if (!isFinite(area_m2) || area_m2 < 1) { //If shape is too small to be valid (0m^2 means either 0 x or 0 y)
+        console.log("Polygon too small — ignoring.");
+        drawnItems.removeLayer(layer);
+        return;
+    }
+
     const item = document.createElement("div");
     item.className = "shape-item open";
     item.setAttribute("draggable", "true");
@@ -332,16 +352,6 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
     document.getElementById("shapeList").appendChild(item);
 
-    let slowTimerTriggered = false;
-
-    const slowTimer = setTimeout(() => { //if in fast mode and takes longer than a second we change what is printed (because lambda function is warming up)
-        if (state.settings.calcMode === "fast") {
-            const txt = item.querySelector(".loading-text");
-            if (txt) txt.textContent = "Warming up the Calculator...";
-            slowTimerTriggered = true;
-        }
-    }, 1000);
-
     //Update State first
     state.shapes.set(id, {layer,item,area_m2: null,result: null});
     updateEmptyState();
@@ -349,19 +359,6 @@ map.on(L.Draw.Event.CREATED, async function (event) {
     // Auto-scroll to bottom
     const panels = document.querySelector(".sidebar-panels");
     panels.scrollTo({ top: panels.scrollHeight, behavior: "smooth" });
-
-    let rawGeom = layer.toGeoJSON().geometry;
-    let safeGeom;
-
-    if (event.layerType === "circle") {
-        const circleGeom = circleToPolygon(layer);
-        safeGeom = normalisePolygonGeometry(circleGeom);
-    }
-    else {
-        safeGeom = normalisePolygonGeometry(rawGeom); //Normalise to span date line
-    }
-
-    const area_m2 = turf.area({type: "Feature", geometry: safeGeom, properties: {}});
 
     try {
         const response = await fetch(
@@ -377,7 +374,6 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         );
 
         const data = await response.json();
-        clearTimeout(slowTimer);
         console.log("Lambda response:", data);
 
         resetLastCallTimestamp()
@@ -392,7 +388,6 @@ map.on(L.Draw.Event.CREATED, async function (event) {
         addOneTimeListeners(layer, item);
 
     } catch (err) {
-        clearTimeout(slowTimer);
         console.error("Population error:", err);
 
         const details = item.querySelector(".shape-details");
@@ -432,6 +427,12 @@ map.on(L.Draw.Event.EDITED, async (e) => {
 
         const area_m2 = turf.area({ type: "Feature", geometry: safeGeom, properties: {}});
 
+        if (!isFinite(area_m2) || area_m2 < 1) { //If shape is too small to be valid (0m^2 means either 0 x or 0 y) Never actually happens for edit for some reason though?? not sure why but that means this technically is not needed
+            console.log("Polygon too small — ignoring.");
+            drawnItems.removeLayer(layer);
+            return;
+        }
+
         entry.area_m2 = area_m2;
 
         const details = entry.item.querySelector(".shape-details");
@@ -461,6 +462,8 @@ map.on(L.Draw.Event.EDITED, async (e) => {
 
             const data = await response.json();
             entry.result = data;
+
+            console.log("Lambda response:", data);
 
             // 4. Re-render sidebar with fresh data & Attach innerhtml dependant listeners
             renderShapeUI(entry.item, entry.result, entry.area_m2);

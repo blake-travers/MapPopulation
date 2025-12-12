@@ -39,7 +39,7 @@ In addition to these 30 degree tiles, two 180 degree tiles have also been constr
 
 #### Population Aggregation
 
-Population Calculations are performed by a serverless backend built in AWS Lambda. Since COGs expose internal overviews, the aggregator can request population values at the appropriate resolution during any point in the quadtree algorithm. This use of quadtrees drastically reduces the arithmetic neccesary for precise computations, and COGs allow the backend to only access overviews & data points as they need.
+Population Calculations are performed by a serverless backend hosted in AWS Lambda. Since COGs expose internal overviews, the aggregator can request population values at the appropriate resolution during any point in the quadtree algorithm. This use of quadtrees drastically reduces the arithmetic neccesary for precise computations, and COGs allow the backend to only access overviews & data points as they need.
 
 Population is estimated through a recursive quadtree algorithm. Each "Pixel" in the raster is treated as a node in the quadtree. Aggregation always starts at the coarsest overview level (1x1), and is recursed finer. Simplified pseudocode is as follows:
 
@@ -80,6 +80,8 @@ Data used in the aggregator is limited to a "Depth" of 14 (meaning approximately
 When a polygon partially overlaps a pixel at maximum resolution (almost always happens), the population is assumed to be uniformly distributed, and the population based on the proportion of polygon inside that pixel is used. While a better estimate than just discounting the pixel entirely, it introduces significant uncertainty into the estimate.
 
 Currently, there is no method of importing / exporting shapes. This is something to consider for future releases.
+
+Upon waking up, the Lambda function takes around 1-2 seconds to warm up the required packages. While measures have been taken to try and minimise the impact this has on calculating population, they aren't universal and you may notice some calculations take an extra second or two if the function is cold.
 
 ## Acknowledgements
 

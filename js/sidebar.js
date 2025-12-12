@@ -202,8 +202,6 @@ toggleBtn.addEventListener('click', () =>
 
     toggleBtn.style.right = sidebarOpen ? SIDEBAR_WIDTH : '0';
     toggleBtn.textContent = sidebarOpen ? '▶' : '◀';
-
-
 });
 
 // Escape Key functionality //

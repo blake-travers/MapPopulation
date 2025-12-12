@@ -19,45 +19,28 @@
         <link rel="stylesheet" href="styles.css">
     </head>
 
-    <input id="searchBox" 
-        type="text" 
-        placeholder="Search for a city or country..." 
-        autocomplete="off"
-        name="no-autofill"
-        autocorrect="off"
-        autocapitalize="off"
-        spellcheck="false"
-        style="
-            position:absolute;
-            top:10px; left:270px;
-            z-index:3000;
-            padding:6px 10px;
-            background: #f7f7f7;
-            border:2px solid #bebebe;
-            border-radius:4px;
-            width:240px;
-        ">
-
-    <div id="searchResults"
-        style="
-            position:absolute;
-            top:46px; left:270px;
-            width:260px;
-            max-height:300px;
-            background:#f7f7f7;
-            border:2px solid #bebebe;
-            border-radius:4px;
-            z-index:3000;
-            display:none;
-        ">
-    </div>
-
     <body>
 
         <button id="sidebarButton" aria-label="Toggle sidebar"></button>
 
         <div id="container">
             <div id="map"></div>
+
+            <div id="map-search">
+                <input
+                    id="searchBox"
+                    type="text"
+                    placeholder="Search for a city or country..."
+                    autocomplete="off"
+                    name="no-autofill"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                />
+
+                <div id="searchResults"></div>
+            </div>
+
 
             <div id="sidebar" aria-hidden="true">
                 <div class="sidebar-inner">

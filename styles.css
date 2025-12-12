@@ -39,6 +39,7 @@ html,body
     height:100%;
     transition: width 0.15s ease;
     min-width: 0;
+    position: relative;
 }
 
 #sidebar
@@ -100,14 +101,38 @@ html,body
     padding: 0;
 }
 
-#searchResults
-{
+/* map search overlay */
+#map-search {
+    position: absolute;
+    top: 236px;
+    left: 10px;
+    width: 260px;
+    z-index: 3000;
+}
+/* input styling */
+#searchBox {
+    width: 100%;
+    padding: 6px 10px;
+    background: #f7f7f7;
+    border: 2px solid #bebebe;
+    border-radius: 4px;
     font-family: "Inter", Arial, sans-serif;
-    font-size: inherit;
 }
 
-.search-result-item
-{
+/* dropdown */
+#searchResults {
+    margin-top: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+
+    background: #f7f7f7;
+    border: 2px solid #bebebe;
+    border-radius: 4px;
+
+    display: none;
+}
+
+.search-result-item {
     font-family: inherit;
     font-size: 14px;
     padding: 8px 10px;
@@ -117,11 +142,9 @@ html,body
     transition: background 0.2s ease;
 }
 
-.search-result-item:hover
-{
+.search-result-item:hover {
     background: #cdd6e9;
 }
-
 
 /* Zoom control container */
 .leaflet-control-zoom a
