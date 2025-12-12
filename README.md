@@ -39,9 +39,9 @@ In addition to these 30 degree tiles, two 180 degree tiles have also been constr
 
 #### Population Aggregation
 
-Population Calculations are performed by a serverless backend built in AWS Lambda. Since COGs expose internal overviews, the aggregator can request population values at the appropriate resolution during any point in the quadtree algorithm. This drastically reduces the arithmetic neccesary for precise computations, resulting in fast access and calculation times.
+Population Calculations are performed by a serverless backend built in AWS Lambda. Since COGs expose internal overviews, the aggregator can request population values at the appropriate resolution during any point in the quadtree algorithm. This use of quadtrees drastically reduces the arithmetic neccesary for precise computations, and COGs allow the backend to only access overviews & data points as they need.
 
-Population is estimated through a recursive quadtree algorithm. Each "Pixel" in the raster is treated as a node in the quadtree. Simplified pseudocode is as follows:
+Population is estimated through a recursive quadtree algorithm. Each "Pixel" in the raster is treated as a node in the quadtree. Aggregation always starts at the coarsest overview level (1x1), and is recursed finer. Simplified pseudocode is as follows:
 
 ```text
 function process_node(pixel, depth):
@@ -64,21 +64,23 @@ Maximum "depth" is determined through a combination of metrics, including angula
 
 #### Uncertainty Estimates
 
-To ensure calculation transperancy, both the algorithmic and estimated dataset uncertainty have been calculated:
-- Algorithmic uncertainty is determined by calculating the ratio of partially intersected nodes to the total number of possible nodes. Through this, and a conservative granularity factor we can determine the algorithmic uncertainty to a 95% confidence. Algorithmic uncertainty is the metric shown by default in the frontend.
-- Dataset uncertainty is a very coarse estimation of possible variation in the given dataset, exclusively based upon the angular span of the polygon aggregated. This value should not be taken verbatim, and only used as a rough guide.
+To ensure calculation transperancy, both the algorithmic and dataset uncertainty have been estimated:
+- Algorithmic uncertainty is determined by calculating the ratio of partially intersected nodes to the total number of possible nodes. Through this, and a conservative granularity factor, we can determine the approximate algortihmic uncertainty given for each polygon. Algorithmic uncertainty is the metric shown by default in the frontend.
+- Dataset uncertainty is a very coarse estimation of possible variation in the dataset, exclusively based upon the angular span of the polygon aggregated. This value should not be taken verbatim, and only used as a rough guide.
 
 #### Frontend
 
-Frontend is constructed using HTML, CSS & Vanilla Javascript. Packages used include Leaflet, Leaflet Draw, Leaflet Geometry, and Turf
+Frontend is constructed using HTML, CSS & Vanilla Javascript.
+Packages used include Leaflet, Leaflet Draw, Leaflet Geometry, and Turf.
 
 #### Limitations
-
-Data source uses extensive population modelling. As such, they can only provide population estimates.
 
 Data used in the aggregator is limited to a "Depth" of 14 (meaning approximately ~200m resolution at the equator). Shapes under 1km^2 are prone to high algorithmic uncertainty.
 
 When a polygon partially overlaps a pixel at maximum resolution (almost always happens), the population is assumed to be uniformly distributed, and the population based on the proportion of polygon inside that pixel is used. While a better estimate than just discounting the pixel entirely, it introduces significant uncertainty into the estimate.
+
+Currently, there is no method of importing / exporting shapes. This is something to consider for future releases.
+
 ## Acknowledgements
 
 Generative AI has been used in parts of this project to debug, brainstorm, and refine implementation.

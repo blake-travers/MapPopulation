@@ -42,8 +42,20 @@ class COGAggregatorGDAL:
         """
 
         # ---- Create polygon, Calculate Scheme & Depth for said Scheme ----
-        self.polygon = shape(polygon_geojson)
-        #area_km2 = self._polygon_area_km2()
+        raw = shape(polygon_geojson)
+
+        normalised = raw.buffer(0)
+
+        self.warnings = []
+
+        if not raw.is_valid:
+            self.warnings.append("Input polygon was invalid or self-intersecting. Polygon has been normalised")
+
+        if normalised.geom_type == "Polygon":
+            self.polygon = normalised
+        else:
+            self.polygon = Polygon(normalised.exterior.coords)
+
         pxmin, pymin, pxmax, pymax = self.polygon.bounds
         scheme, self.custom_max_depth = self._calculate_depth_scheme(speed, pxmin, pymin, pxmax, pymax)
 
@@ -85,7 +97,6 @@ class COGAggregatorGDAL:
         total_open = 0
         total_process = 0
         tiles_processed = 0
-        self.warning = None
         for (lon1, lat1, lon2, lat2), key in candidate_tiles2:
             tiles_processed += 1
             t0 = time.time()
@@ -99,7 +110,7 @@ class COGAggregatorGDAL:
                 self.max_depth = ds.GetRasterBand(1).GetOverviewCount()
                 #If custom max depth is more than 14 (which it very well can be with current implementation)
                 if self.custom_max_depth > self.max_depth:
-                    self.warning = f"Custom Max Depth is larger than Max Depth. Polygon cannot fully recurse to chosen depth. This is okay for very small polygons. Desired: {self.custom_max_depth}, Max: {self.max_depth}"
+                    self.warnings.append(f"Custom Max Depth is larger than Max Depth. Polygon cannot fully recurse to chosen depth. This is okay for very small polygons. Desired: {self.custom_max_depth}, Max: {self.max_depth}")
                     self.custom_max_depth = min(self.custom_max_depth, self.max_depth)
 
             t_open = time.time() - t0
@@ -175,7 +186,7 @@ class COGAggregatorGDAL:
             },
 
             "diagnostics": {
-                "warnings": self.warning
+                "warnings": self.warnings
             }
         }
         return result
@@ -530,7 +541,8 @@ def test_polygons():
         ("Australia east coast region", {"type": "Polygon","coordinates": [[[149, -36],[151, -36],[153, -34],[153, -32],[151, -30],[149, -33],[149, -36]]]}, "exact"),
         ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "fast"),
         ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "exact"),
-        ("Gigantic region", {"type": "Polygon","coordinates": [[[-170, -81],[171, -80],[169, 82],[-175, 77]]]}, "fast")
+        ("Gigantic region", {"type": "Polygon","coordinates": [[[-170, -81],[171, -80],[169, 82],[-175, 77]]]}, "fast"),
+        ("Self-intersecting Bow Tie", {"type": "Polygon","coordinates": [[[144.95, -37.82],[145.05, -37.75],[144.95, -37.75],[145.05, -37.82],[144.95, -37.82]]]},"fast")
     ]
 
     print("\n--- Running COG polygon tests ---\n")

@@ -301,6 +301,7 @@ export function renderShapeUI(item, data, area_m2) {
     const details = item.querySelector(".shape-details");
     const round5 = (x, d = 5) => Number(x.toFixed(d));
     const roundint = (x) => Math.round(x).toLocaleString();
+    const round2 = (x, d = 2) => Number(x.toFixed(d));
 
     const pop = data.result.result.population;
     const D = data.result.duration;
@@ -338,7 +339,7 @@ export function renderShapeUI(item, data, area_m2) {
             <button class="shape-pan" aria-label="Pan to shape">🔍︎</button>
 
             <div class="simple-grid">
-                <b>Population:</b> ${roundint(pop)}&nbsp;  ±${U.algorithmic_uncertainty_pct}%
+                <b>Population:</b> ${roundint(pop)}&nbsp;&nbsp;  ±${round2(U.algorithmic_uncertainty_pct)}%
 
                 <b>Area:</b>
                 <span>
@@ -386,14 +387,18 @@ export function renderShapeUI(item, data, area_m2) {
                     <span class="density-unit"></span>
                 </span>
 
+                <div class="debug-spacer" aria-hidden="true"></div>
+
                 <b>Shape Bounding box:</b>
                 [${G.bounding_box.xmin}°, ${G.bounding_box.ymin}°] →  [${G.bounding_box.xmax}°, ${G.bounding_box.ymax}°]
                 
                 <b>Shape Angular Span:</b> ${G.angular_span_deg}°
                 <b>Shape Perimeter:</b> ${G.perimeter_deg}°
 
-                <b>Algorithmic Uncertainty:</b> ±${U.algorithmic_uncertainty_pct}%
-                <b>Estimated Dataset Uncertainty:</b> ±${U.estimated_dataset_uncertainty_pct}%
+                <div class="debug-spacer" aria-hidden="true"></div>
+
+                <b>Estimated Algorithmic Uncertainty:</b> ±${round2(U.algorithmic_uncertainty_pct)}%
+                <b>Estimated Dataset Uncertainty:</b> ±${roundint(U.estimated_dataset_uncertainty_pct)}%
 
                 <b>Total Calculation Time:</b> ${D.algorithm_time.total_ms} ms
 
@@ -402,9 +407,7 @@ export function renderShapeUI(item, data, area_m2) {
                 ${R.highest_resolution_degrees}° /
                 ${R.highest_resolution_minutes}' /
                 ${R.highest_resolution_seconds}"
-                <b>Number of Visited Nodes:</b> ${Q.nodes_visited}
-
-
+        
             </div>
         `;
         item.classList.add("debug-expanded")
@@ -415,6 +418,7 @@ export function renderShapeUI(item, data, area_m2) {
 // <b>Tile Size:</b> ${R.scheme_tile_size_deg}°
 // <b>Complexity Factor: </b> ${G.complexity}
 // <b>Maximum Chosen Depth:</b> ${R.custom_max_depth}
+// <b>Number of Visited Nodes:</b> ${Q.nodes_visited}
 // <b>Full Nodes:</b> ${Q.full_nodes}
 // <b>Empty Nodes:</b> ${Q.empty_nodes}
 // <b>Partial Nodes:</b> ${Q.partial_nodes}

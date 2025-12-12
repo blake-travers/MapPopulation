@@ -314,6 +314,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
     const item = document.createElement("div");
     item.className = "shape-item open";
+    item.setAttribute("draggable", "true");
     item.style.setProperty("--shape-color", color);
     
     item.innerHTML = `
@@ -498,6 +499,41 @@ document.querySelectorAll('input[name="mapType"]').forEach(radio => {
         mapState.currentBaseLayer.addTo(map);
     });
 });
+
+let draggedItem = null;
+
+document.addEventListener("dragstart", (e) => {
+    if (e.target.classList.contains("shape-item")) {
+        draggedItem = e.target;
+        e.target.classList.add("dragging");
+    }
+});
+
+document.addEventListener("dragend", (e) => {
+    if (e.target.classList.contains("shape-item")) {
+        e.target.classList.remove("dragging");
+    }
+});
+
+// Allow dropping by preventing default
+document.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    const list = document.getElementById("shapeList");
+    const items = [...list.querySelectorAll(".shape-item:not(.dragging)")];
+
+    // Find the item we are hovering above
+    const after = items.find(i => {
+        const rect = i.getBoundingClientRect();
+        return e.clientY < rect.top + rect.height / 2;
+    });
+
+    if (after == null) {
+        list.appendChild(draggedItem);
+    } else {
+        list.insertBefore(draggedItem, after);
+    }
+});
+
 
 
 let lastCallTimestamp = 0;
