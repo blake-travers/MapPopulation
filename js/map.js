@@ -178,7 +178,7 @@ const drawControl = new L.Control.Draw
         edit:
         {
             featureGroup: drawnItems,
-            edit: true,
+            edit: false,
             remove: false
         },
         draw:
@@ -396,7 +396,7 @@ map.on(L.Draw.Event.CREATED, async function (event) {
 
 });
 
-// Recalculate upon shape edit
+// Recalculate upon shape edit. Currently not relevant as long as shape handling is off
 
 map.on(L.Draw.Event.EDITED, async (e) => {
     for (const layer of Object.values(e.layers._layers)) {

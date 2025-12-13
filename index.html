@@ -30,7 +30,7 @@
                 <input
                     id="searchBox"
                     type="text"
-                    placeholder="Search for a city or country..."
+                    placeholder="Search for location"
                     autocomplete="off"
                     name="no-autofill"
                     autocorrect="off"
@@ -63,7 +63,10 @@
                         <div class="tab-panel active" id="tab-shapes">
                             <div id="emptyState" class="empty-state">
                                 <p><b>No shapes yet</b></p>
-                                <p>Draw a shape on the map (using the tools to the left of your screen) to calculate population.</p>
+                                <p>Draw a shape on the map to calculate population.</p>
+                                <br><br>
+
+                                <p>Alternatively, click to create examples:</p>
 
                                 <button id="addSampleShapesBtn">
                                     Create example shapes
@@ -117,13 +120,13 @@
                                             <label class="radio-option">
                                                 <input type="radio" name="calcMode" value="fast" checked>
                                                 <span>Fast</span>
-                                                <span class="info-icon" data-info="Fast Mode sacrifices precision for speed - guaranteeing calculation times of no more than half a second for all shapes. This works by sacrificing the maximum resolution the polygon is calculated at. <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
+                                                <span class="info-icon" data-info="Fast Mode sacrifices precision for speed - guaranteeing <b> calculation times of no more than half a second </b> for all shapes. This works by sacrificing the maximum resolution the polygon is calculated at. <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
                                             </label>
 
                                             <label class="radio-option">
                                                 <input type="radio" name="calcMode" value="exact">
                                                 <span>Exact</span>
-                                                <span class="info-icon"  data-info="Exact Mode offers a precise calculation, refining the overall population value and reducing uncertainty. Please leave up to 10 seconds for the polygon to finish its calculations.  <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
+                                                <span class="info-icon"  data-info="Exact Mode offers a precise calculation, refining the overall population value and reducing uncertainty. <b>Please leave up to 10 seconds </b> for the polygon to finish its calculations.  <br><br> Please note that Changing this value does not recalculate existing shapes' population.">i</span>
                                             </label>
                                         </div>
                                     </section>
@@ -166,7 +169,7 @@
 
                                     <section class="settings-section info-panel">
                                         <div id="infoPanelContent" class="info-panel-content">
-                                            <p class="placeholder">Hover over any <span class="info-icon small">i</span> icon to see its details here.</p>
+                                            <p class="placeholder">Hover over any <span class="info-icon small">i</span> icon to see its details.</p>
                                         </div>
                                     </section>
                                 </div>
@@ -182,31 +185,41 @@
 
                                             <label class="radio-option map-type-option">
                                                 <input type="radio" name="mapType" value="vector_carto" checked>
-                                                <span class="map-type-label">Carto</span>
+                                                <span class="map-type-label">
+                                                    <span class="info-icon"  data-info="<b>Carto Voyager</b>">i</span>
+                                                </span>
                                                 <div class="map-preview vector1"></div>
                                             </label>
 
                                             <label class="radio-option map-type-option">
                                                 <input type="radio" name="mapType" value="vector_osm">
-                                                <span class="map-type-label">OSM</span>
+                                                <span class="map-type-label">
+                                                    <span class="info-icon"  data-info="<b>OpenStreetMap</b>">i</span>
+                                                </span>
                                                 <div class="map-preview vector2"></div>
                                             </label>
 
                                             <label class="radio-option map-type-option">
                                                 <input type="radio" name="mapType" value="satellite">
-                                                <span class="map-type-label">Satellite</span>
+                                                <span class="map-type-label">
+                                                    <span class="info-icon"  data-info="<b>Satellite</b>">i</span>
+                                                </span>
                                                 <div class="map-preview satellite"></div>
                                             </label>
 
                                             <label class="radio-option map-type-option">
                                                 <input type="radio" name="mapType" value="terrain">
-                                                <span class="map-type-label">Terrain</span>
+                                                <span class="map-type-label">
+                                                    <span class="info-icon"  data-info="<b>Terrain</b>">i</span>
+                                                </span>
                                                 <div class="map-preview terrain"></div>
                                             </label>
 
                                             <label class="radio-option map-type-option">
                                                 <input type="radio" name="mapType" value="dark">
-                                                <span class="map-type-label">Dark</span>
+                                                <span class="map-type-label">
+                                                    <span class="info-icon"  data-info="<b>Carto Dark</b>">i</span>
+                                                </span>
                                                 <div class="map-preview dark"></div>
                                             </label>
 

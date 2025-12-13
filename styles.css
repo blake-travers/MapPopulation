@@ -104,7 +104,7 @@ html,body
 /* map search overlay */
 #map-search {
     position: absolute;
-    top: 236px;
+    top: 286px;
     left: 10px;
     width: 260px;
     z-index: 3000;
@@ -150,18 +150,12 @@ html,body
 .leaflet-control-zoom a
 {
     transition: background 0.2s, transform 0.2s;
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    
 }
 .leaflet-control-zoom a:hover
-{
-    background-color: var(--color-highlight);
-}
-
-/* Draw control container */
-.leaflet-draw .leaflet-bar a
-{
-    transition: background 0.2s, transform 0.2s;
-}
-.leaflet-draw .leaflet-bar a:hover
 {
     background-color: var(--color-highlight);
 }
@@ -464,7 +458,7 @@ html,body
     display: flex;
     flex-direction: column;
     gap: 14px;
-    min-height: 0;
+    min-height: 100%;  
 }
 
 /* Top action bar */
@@ -601,7 +595,7 @@ html,body
 
 .map-type-option {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) minmax(40px, 280px);
     align-items: center;
     gap: 10px;
 
@@ -619,7 +613,8 @@ html,body
 
 /* Preview box */
 .map-preview {
-    width: 176px;
+    width: 100%;
+    max-width: 280px;
     height: 92px;
 
     border-radius: 4px;
@@ -627,8 +622,7 @@ html,body
 
     background-size: cover;
     background-position: center;
-
-    flex-shrink: 0;
+    margin-left: 20px;
 }
 
 /* CARTO Voyager preview */
@@ -831,11 +825,6 @@ html,body
     display: flex;
     flex-direction: column;
     gap: 14px;
-
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0; 
     
 }
 
