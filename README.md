@@ -75,7 +75,7 @@ Packages used include Leaflet, Leaflet Draw, Leaflet Geometry, and Turf.
 
 #### Limitations
 
-Data used in the aggregator is limited to a "Depth" of 14 (meaning approximately ~200m resolution at the equator). Shapes under 1km^2 are prone to high algorithmic uncertainty.
+Data used in the aggregator is limited to a "Depth" of 14 (meaning approximately ~200m resolution at the equator). Shapes under 10km^2 in fast mode, and under 2,000km^2 in exact mode, are prone to higher algorithmic uncertainty.
 
 When a polygon partially overlaps a pixel at maximum resolution (almost always happens), the population is assumed to be uniformly distributed, and the population based on the proportion of polygon inside that pixel is used. While a better estimate than just discounting the pixel entirely, it introduces significant uncertainty into the estimate.
 
@@ -85,10 +85,16 @@ Upon waking up, the Lambda function takes around 1-2 seconds to warm up the requ
 
 ## Acknowledgements
 
+This project includes third-party libraries and datasets:
+- Leaflet (BSD-2-Clause)
+- OpenStreetMap contributors
+- CARTO basemaps
+- ESRI World Imagery
+
 Generative AI has been used in parts of this project to debug, brainstorm, and refine implementation.
 
-Dataset
+Dataset:
 Schiavina, Marcello; Freire, Sergio; Alessandra Carioli; MacManus, Kytt (2023): GHS-POP R2023A - GHS population grid multitemporal (1975-2030). European Commission, Joint Research Centre (JRC) [Dataset] doi: 10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE PID: http://data.europa.eu/89h/2ff68a52-5b5b-4a22-8f40-c41da8332cfe
 
-Dataset Methodology
+Dataset Methodology:
 Pesaresi, Martino, Marcello Schiavina, Panagiotis Politis, Sergio Freire, Katarzyna Krasnodębska, Johannes H. Uhl, Alessandra Carioli, et al. (2024). Advances on the Global Human Settlement Layer by Joint Assessment of Earth Observation and Population Survey Data. International Journal of Digital Earth 17 (1). doi:10.1080/17538947.2024.2390454

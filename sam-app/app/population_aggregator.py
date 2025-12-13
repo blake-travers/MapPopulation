@@ -504,13 +504,13 @@ class COGAggregatorGDAL:
             self.partial_ratio = 0.0
 
         #Number of cells throughout highest calculated resolution
-        cells_across_span = max(1.0, self.angular_span / self.resolution_degrees)
+        cells_across_span = self.angular_span / self.resolution_degrees
 
-        granularity_factor = min(4.0, 10.0 / cells_across_span)
+        granularity_factor = 10.0 / cells_across_span
         sigma_pct = self.partial_ratio * granularity_factor * 2.0
 
         confidence_95 = 1.96 * sigma_pct
-        confidence_95 = round(min(max(confidence_95, 0.01), 20), 3)
+        confidence_95 = round(min(max(confidence_95, 0.01), 100), 3)
 
 
         pxmin, pymin, pxmax, pymax = self.polygon.bounds
@@ -523,7 +523,7 @@ class COGAggregatorGDAL:
 
         high = a + b * logA
 
-        high = max(min(high, 10.0), 0.1)
+        high = max(min(high, 25), 0.1)
 
         return confidence_95, round(high, 1)
     
@@ -542,7 +542,8 @@ def test_polygons():
         ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "fast"),
         ("Huge region (EU + Middle East)", {"type": "Polygon","coordinates": [[[-10, 30],[40, 30],[40, 60],[-10, 60],[-10, 30]]]}, "exact"),
         ("Gigantic region", {"type": "Polygon","coordinates": [[[-170, -81],[171, -80],[169, 82],[-175, 77]]]}, "fast"),
-        ("Self-intersecting Bow Tie", {"type": "Polygon","coordinates": [[[144.95, -37.82],[145.05, -37.75],[144.95, -37.75],[145.05, -37.82],[144.95, -37.82]]]},"fast")
+        ("Self-intersecting Bow Tie", {"type": "Polygon","coordinates": [[[144.95, -37.82],[145.05, -37.75],[144.95, -37.75],[145.05, -37.82],[144.95, -37.82]]]},"fast"),
+        ("Extremely small region", {"type": "Polygon","coordinates": [[[30, 60],[30, 60.001],[30.001, 60.001],[30.001, 60],[30, 60]]]},"fast")
     ]
 
     print("\n--- Running COG polygon tests ---\n")
