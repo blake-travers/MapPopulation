@@ -195,6 +195,7 @@ const drawControl = new L.Control.Draw
 map.addControl(drawControl);
 
 function showDrawOnboarding() {
+    if (sessionStorage.getItem("drawOnboardingDismissed") === "true") return;
     const drawBtn = document.querySelector(".leaflet-draw-draw-polygon");
     const tooltip = document.getElementById("drawOnboarding");
 
