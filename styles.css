@@ -1,11 +1,11 @@
 :root
 {
-    --color-bg: #f0f0f0;
+    --color-bg: #f8f8f8;
     --color-bg-border: rgba(0,0,0,0.4);
-    --color-highlight: #e6e6e6;
-    --color-shape-panel: #e2e6f1;
-    --color-settings-panel: #e2eef0;
-    --color-header: #464646;
+    --color-highlight: #ffffff;
+    --color-shape-panel: #fafdff;
+    --color-settings-panel: #fafaff;
+    --color-header: #313131;
 }
 
 *, *::before, *::after
@@ -168,6 +168,7 @@ html,body
     overflow: hidden;
     cursor: pointer;
     transition: background-color 0.1s ease;
+    border: 1.2px solid var(--color-bg-border);
 }
 
 .shape-header
@@ -922,4 +923,99 @@ html,body
 .debug-grid .debug-spacer {
     grid-column: 1 / -1;
     height: 0.4rem;
+}
+
+/* --- Onboarding Tooltip --- */
+
+.onboarding-tooltip {
+    position: absolute;
+    z-index: 4000;
+    pointer-events: auto;
+}
+
+.onboarding-tooltip.hidden {
+    display: none;
+}
+
+.tooltip-content {
+    background: #ffffff;
+    border: 1.2px solid var(--color-bg-border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    width: 250px;
+    height: 100px;
+
+    font-size: 14px;
+    line-height: 1.4;
+
+    animation: slide-in-left 0.4s ease;
+    position: relative;
+}
+
+.tooltip-content p {
+    margin: 6px 0;
+}
+
+.tooltip-close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    border: none;
+    background: none;
+    font-size: 32px;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.tooltip-close:hover {
+    opacity: 1;
+}
+
+.tooltip-arrow {
+    position: absolute;
+    left: -10px;
+    top: 38px;
+
+    width: 0;
+    height: 0;
+
+    border-top: 9px solid transparent;
+    border-bottom: 9px solid transparent;
+    border-right: 10px solid var(--color-bg-border);
+}
+
+.tooltip-arrow::after {
+    content: "";
+    position: absolute;
+    left: 1px;
+    top: -8px;
+
+    width: 0;
+    height: 0;
+
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 9px solid #ffffff;
+}
+
+/* Gentle attention animation */
+@keyframes slide-in-left {
+    0% {
+        transform: translateX(-12px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Optional: subtle bobbing to draw eye */
+.onboarding-tooltip {
+    animation: bob 2s ease-in-out infinite;
+}
+
+@keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-4px); }
 }

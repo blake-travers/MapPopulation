@@ -194,6 +194,29 @@ const drawControl = new L.Control.Draw
 );
 map.addControl(drawControl);
 
+function showDrawOnboarding() {
+    const drawBtn = document.querySelector(".leaflet-draw-draw-polygon");
+    const tooltip = document.getElementById("drawOnboarding");
+
+    if (!drawBtn || !tooltip) return;
+
+    const btnRect = drawBtn.getBoundingClientRect();
+
+    tooltip.style.left = `${btnRect.right + window.scrollX + 12}px`;
+    tooltip.style.top  = `${btnRect.top + window.scrollY - 6}px`;
+
+    tooltip.classList.remove("hidden");
+
+    tooltip.querySelector(".tooltip-close").onclick = () => {
+        tooltip.classList.add("hidden");
+        sessionStorage.setItem("drawOnboardingDismissed", "true"); //Only active once per session.. we dont want to spam the user if reloading the page
+    };
+}
+
+setTimeout(showDrawOnboarding, 200);
+
+
+
 function unwrapLongitudes(coords)
 {
     const out = [];
